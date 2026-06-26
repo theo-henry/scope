@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Typeface */
+  --font-sans: 'Switzer', 'Inter', system-ui, sans-serif;
+  --font-heading: 'Switzer', 'Inter', system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
+
+  /* Scope palette (token -> css var so dark mode swaps work) */
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-graphite: var(--graphite);
+  --color-slate: var(--slate);
+  --color-mist: var(--mist);
+  --color-hairline: var(--hairline);
+  --color-hairline-2: var(--hairline-2);
+
+  --color-valid-high: var(--valid-high);
+  --color-valid-mid: var(--valid-mid);
+  --color-valid-low: var(--valid-low);
+  --color-accent: var(--accent);
+
+  /* shadcn semantic tokens mapped onto the Scope palette */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--paper);
+  --color-secondary: var(--hairline-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--hairline-2);
+  --color-muted-foreground: var(--mist);
+  --color-accent-foreground: var(--paper);
+  --color-destructive: var(--valid-low);
+  --color-border: var(--hairline);
+  --color-input: var(--hairline);
+  --color-ring: var(--ink);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+  --radius: 12px;
+
+  /* Shadows (neutral, soft, rare) */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 30px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.08);
+}
+
+:root {
+  color-scheme: light;
+
+  --paper: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #0b0b0c;
+  --graphite: #2b2b2c;
+
+  --slate: #606266;
+  --mist: #a5a7ad;
+  --hairline: #e4e6ea;
+  --hairline-2: #edeef1;
+
+  --valid-high: #1f8a52;
+  --valid-mid: #b8841f;
+  --valid-low: #b23a48;
+
+  --accent: #3a3f4a;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --paper: #0b0b0c;
+  --surface: #131315;
+  --ink: #f4f5f7;
+  --graphite: #e4e6ea;
+
+  --slate: #a5a7ad;
+  --mist: #6e7075;
+  --hairline: #232325;
+  --hairline-2: #1b1b1d;
+
+  --valid-high: #3fae74;
+  --valid-mid: #d6a23f;
+  --valid-low: #d05c69;
+
+  --accent: #c7cad2;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-paper text-ink;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Gradient system (DESIGN.md §3) — all greyscale
+--------------------------------------------------------------------------- */
+
+/* A. Silver aurora — for dark feature cards */
+.aurora {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    #ffffff 0%,
+    #c8cad0 18%,
+    #6e7075 38%,
+    #1a1a1c 55%,
+    #6e7075 72%,
+    #c8cad0 88%,
+    #ffffff 100%
+  );
+  filter: blur(40px);
+  opacity: 0.35;
+  animation: aurora-rotate 28s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes aurora-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* B. Soft grey mesh — hero / onboarding background */
+.mesh {
+  background:
+    radial-gradient(40% 50% at 20% 30%, var(--mesh-a) 0%, transparent 60%),
+    radial-gradient(45% 55% at 80% 70%, var(--mesh-b) 0%, transparent 60%),
+    var(--paper);
+}
+
+:root {
+  --mesh-a: #e8e9ed;
+  --mesh-b: #d9dbe0;
+}
+
+.dark {
+  --mesh-a: #18181b;
+  --mesh-b: #1d1d20;
+}
+
+/* C. Edge fade to paper for imagery */
+.edge-fade-bottom {
+  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+}
+
+/* Grain overlay for dark cards */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Greyscale outlet logos / favicons */
+.logo-grey {
+  filter: grayscale(1);
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora {
+    animation: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}
