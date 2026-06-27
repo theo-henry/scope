@@ -1,7 +1,8 @@
 import type { Source } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { OutletLogo } from '@/components/outlet-logo'
 
-/** A row of small greyscale outlet initials + an "+N outlets" counter. */
+/** A row of outlet favicons + an "+N outlets" counter. */
 export function SourceAvatars({
   sources,
   max = 4,
@@ -16,14 +17,13 @@ export function SourceAvatars({
   return (
     <div className={cn('flex items-center', className)}>
       <div className="flex -space-x-1.5">
-        {shown.map((s) => (
-          <span
-            key={s.domain}
-            title={s.outlet}
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-hairline bg-hairline-2 text-[10px] font-semibold text-slate logo-grey"
-          >
-            {s.outlet.charAt(0)}
-          </span>
+        {shown.map((s, i) => (
+          <OutletLogo
+            key={`${i}-${s.domain}`}
+            domain={s.domain}
+            outlet={s.outlet}
+            size="sm"
+          />
         ))}
       </div>
       <span className="ml-2 text-xs font-medium text-mist">

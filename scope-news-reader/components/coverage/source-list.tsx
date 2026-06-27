@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import type { Source } from '@/lib/types'
 import { BiasBadge } from '@/components/bias-badge'
+import { OutletLogo } from '@/components/outlet-logo'
 
 export function SourceList({ sources }: { sources: Source[] }) {
   return (
@@ -17,9 +18,7 @@ export function SourceList({ sources }: { sources: Source[] }) {
           >
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-hairline bg-hairline-2 text-xs font-semibold text-slate logo-grey">
-                  {s.outlet.charAt(0)}
-                </span>
+                <OutletLogo domain={s.domain} outlet={s.outlet} size="md" />
                 <span className="text-sm font-medium text-ink">{s.outlet}</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-slate">

@@ -67,8 +67,20 @@ export function LensSections({ story }: { story: Story }) {
           <p className="max-w-2xl text-pretty leading-relaxed text-slate">
             {skeptic.summary}
           </p>
+        </section>
+      </Reveal>
+
+      {/* Validity */}
+      <Reveal>
+        <section>
           <ValidityMeter score={skeptic.validityScore} rationale={skeptic.validityRationale} />
-          {skeptic.missingNote && (
+        </section>
+      </Reveal>
+
+      {/* What's missing */}
+      {skeptic.missingNote && (
+        <Reveal>
+          <section>
             <div className="flex gap-3 rounded-lg border border-dashed border-hairline bg-hairline-2/50 p-4">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-mist" strokeWidth={1.5} />
               <div>
@@ -80,9 +92,9 @@ export function LensSections({ story }: { story: Story }) {
                 </p>
               </div>
             </div>
-          )}
-        </section>
-      </Reveal>
+          </section>
+        </Reveal>
+      )}
     </div>
   )
 }
