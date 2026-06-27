@@ -386,27 +386,7 @@ export const STORIES: Story[] = [
   },
 ]
 
-// --- Mock data-access layer (swap for Supabase queries later) ----------------
-
-export function getStories(profile: Profile = DEMO_PROFILE): Story[] {
-  return STORIES.filter(
-    (s) =>
-      profile.categories.includes(s.category) &&
-      (profile.countries.includes(s.country) ||
-        profile.countries.includes('Global')),
-  ).sort(
-    (a, b) =>
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-  )
-}
-
-export function getAllStories(): Story[] {
-  return [...STORIES].sort(
-    (a, b) =>
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-  )
-}
-
-export function getStoryBySlug(slug: string): Story | undefined {
-  return STORIES.find((s) => s.slug === slug)
-}
+// STORIES above is the committed sample used as the fallback in lib/stories.ts
+// when the synthesized cache (synthesized/latest.json) is unreachable or invalid.
+// The live data-access API (getStories / getAllStories / getStoryBySlug) lives in
+// lib/stories.ts and reads the real cache.

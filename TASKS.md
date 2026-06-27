@@ -88,13 +88,23 @@ backend/venv/bin/python backend/search_test.py "world"
    schema (query/summary/articles, no lenses). Delete it, or have the frontend
    loader match `stories_*.json` only.
 
-7. **NEXT** — Connect the Next.js frontend to the cached synthesized JSON. Add a
-   data-access layer / API route that reads the latest `synthesized/stories_*.json`
-   from GCS and swap it in for `lib/mock-data.ts`. The Story shape already matches,
-   so the UI should not need changes. Start by validating one `stories_*.json`
-   against `Story` / `TriPerspectiveLens`. Known gap: `synthesize.py` emits
-   placeholder `biasLean: "center"` / `reliability: 75` for every source (curated
-   outlet-bias dataset is deferred), so the bias spectrum/badges will look uniform.
+7. ~~Connect the Next.js frontend to the cached synthesized JSON.~~ DONE (code).
+   New `lib/stories.ts` async data layer fetches the public object
+   `synthesized/latest.json` server-side (build + hourly ISR) and falls back to the
+   committed sample (`lib/mock-data.ts` STORIES) if it's unreachable/invalid.
+   `app/page.tsx` and `app/story/[slug]/page.tsx` are now async and read it; the old
+   sync getters were removed from `mock-data.ts`. `synthesize.py` now also writes
+   `synthesized/latest.json`. Frontend `tsc` + `next build` pass (build currently
+   logs a 403 + uses sample data — expected until the two manual steps below).
+
+   REMAINING (manual, your side) to flip to real data:
+   a. Rerun the committed `synthesize.py` in Cloud Shell so `synthesized/latest.json`
+      is created (the timestamped-only runs predate this change).
+   b. Make that object public-read (grant `allUsers` -> `roles/storage.objectViewer`
+      on the object, or on the `synthesized/` prefix). Then the app loads it with no
+      credentials. Override the URL with `SCOPE_STORIES_URL` if needed (e.g. Vercel).
+   Known gap: `synthesize.py` emits placeholder `biasLean: "center"` /
+   `reliability: 75` for every source, so the bias spectrum/badges look uniform.
 
 8. Build grounded chat behavior using only loaded/retrieved article context
    (replace `lib/mock-chat.ts` with a real grounded route).

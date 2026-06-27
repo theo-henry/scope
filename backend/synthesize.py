@@ -245,11 +245,18 @@ def build_story(topic, docs, generated):
 
 def upload_cache(stories):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    filename = f"synthesized/stories_{timestamp}.json"
     body = json.dumps(stories, indent=2, ensure_ascii=False)
-    blob = storage.Client().bucket(BUCKET_NAME).blob(filename)
-    blob.upload_from_string(body, content_type="application/json")
-    return f"gs://{BUCKET_NAME}/{filename}"
+    bucket = storage.Client().bucket(BUCKET_NAME)
+
+    # Timestamped archive (audit/history) + a stable `latest.json` that the
+    # frontend fetches by a fixed public URL. Grant public read on latest.json
+    # once (IAM / object ACL) — synthesis just overwrites the object.
+    archive = f"synthesized/stories_{timestamp}.json"
+    bucket.blob(archive).upload_from_string(body, content_type="application/json")
+    bucket.blob("synthesized/latest.json").upload_from_string(
+        body, content_type="application/json"
+    )
+    return f"gs://{BUCKET_NAME}/{archive}", f"gs://{BUCKET_NAME}/synthesized/latest.json"
 
 
 def main():
@@ -276,8 +283,10 @@ def main():
     if not stories:
         raise SystemExit("No stories synthesized; check retrieval and topics.")
 
-    uri = upload_cache(stories)
-    print(f"\nUploaded {len(stories)} synthesized stories to {uri}")
+    archive_uri, latest_uri = upload_cache(stories)
+    print(f"\nUploaded {len(stories)} synthesized stories to:")
+    print(f"  archive: {archive_uri}")
+    print(f"  latest:  {latest_uri}")
 
 
 if __name__ == "__main__":

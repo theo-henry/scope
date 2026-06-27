@@ -1,14 +1,19 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getStoryBySlug, STORIES } from '@/lib/mock-data'
+import { getStoryBySlug, getAllStories } from '@/lib/stories'
 import { CoverageHeader } from '@/components/coverage/coverage-header'
 import { LensSections } from '@/components/coverage/lens-sections'
 import { SourceList } from '@/components/coverage/source-list'
 import { BiasSpectrum } from '@/components/coverage/bias-spectrum'
 import { Reveal } from '@/components/reveal'
 
-export function generateStaticParams() {
-  return STORIES.map((s) => ({ slug: s.slug }))
+export const revalidate = 3600
+// Allow stories that appear in the cache after build to render on demand.
+export const dynamicParams = true
+
+export async function generateStaticParams() {
+  const stories = await getAllStories()
+  return stories.map((s) => ({ slug: s.slug }))
 }
 
 export async function generateMetadata({
@@ -17,7 +22,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const story = getStoryBySlug(slug)
+  const story = await getStoryBySlug(slug)
   if (!story) return { title: 'Story not found — Scope' }
   return { title: `${story.headline} — Scope`, description: story.aiSummary }
 }
@@ -28,7 +33,7 @@ export default async function StoryPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const story = getStoryBySlug(slug)
+  const story = await getStoryBySlug(slug)
   if (!story) notFound()
 
   return (

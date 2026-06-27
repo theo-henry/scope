@@ -238,8 +238,9 @@ export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
 backend/venv/bin/python backend/synthesize.py
 ```
 
-Output: `gs://scope-news-raw-data/synthesized/stories_<timestamp>.json` (array of
-Story objects, each with `lenses.institutional/reformist/skeptic`).
+Output: a timestamped archive `synthesized/stories_<timestamp>.json` AND a stable
+`synthesized/latest.json` (both arrays of Story objects, each with
+`lenses.institutional/reformist/skeptic`). The frontend reads `latest.json`.
 
 The Tri-Perspective Lens JSON schema is the shared backend↔frontend contract:
 `LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` mirrors `Story` / `TriPerspectiveLens`
@@ -253,14 +254,21 @@ There is already a frontend folder:
 scope-news-reader/
 ```
 
-A Next.js (App Router) app with Tailwind/shadcn-style structure. It currently runs
-on mock data (`lib/mock-data.ts`, `lib/mock-chat.ts`) and is built to consume cached
-synthesized JSON — never querying RSS, Discovery Engine, or Gemini from the browser.
+A Next.js (App Router) app with Tailwind/shadcn-style structure. Story data comes
+from `lib/stories.ts`, which fetches the public `synthesized/latest.json`
+server-side (build + hourly ISR) and falls back to the committed sample
+(`lib/mock-data.ts` STORIES) when it's unreachable/invalid. It never queries RSS,
+Discovery Engine, or Gemini from the browser. The chatbot still uses
+`lib/mock-chat.ts` (real grounded route is Task 8).
+
+Data source config:
+- Default URL: `https://storage.googleapis.com/scope-news-raw-data/synthesized/latest.json`
+- Override with `SCOPE_STORIES_URL` (e.g. in Vercel env).
+- `latest.json` must be granted public read (`allUsers` -> `storage.objectViewer`)
+  for the live data to load; otherwise the app serves the sample fallback.
 
 The coverage view renders the three explicit lenses as numbered sections via
 `components/coverage/lens-sections.tsx`, driven by `Story.lenses` in `lib/types.ts`.
-The Story shape already matches `synthesize.py` output, so wiring the cache in
-should not require UI changes.
 
 ## Product Constraints From PRD
 
