@@ -148,6 +148,18 @@ synthesis and image generation.
 
 `latest.json` is updated automatically. The live site picks it up within one hour.
 Older stories are retained for 14 days by default, capped at 50 visible stories.
+Existing stories are reused when the retrieved source cluster has the same
+`sourceKey`, so unchanged story clusters do not call Gemini again or regenerate
+their images.
+
+For a no-publish check before scheduling, run:
+
+```bash
+SCOPE_REFRESH_DRY_RUN=true backend/venv/bin/python backend/refresh.py
+```
+
+Dry runs still fetch/import current RSS articles and upload a refresh report, but
+they do not call Gemini or overwrite `synthesized/latest.json`.
 
 ---
 
@@ -178,9 +190,18 @@ before it reads environment variables. `.env` is gitignored.
 | `SCOPE_PROJECT_ID` | No | `scope-mvp-prod` | GCP project ID |
 | `SCOPE_GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model used by synthesis |
 | `SCOPE_GEMINI_IMAGE_MODEL` | No | `gemini-3.1-flash-image` | Gemini image model used for generated story artwork |
+| `SCOPE_SOURCE_CATALOG` | No | `backend/sources.json` | JSON source catalog used by ingestion |
+| `SCOPE_PER_FEED_LIMIT` | No | `12` | Maximum RSS entries fetched from each source |
+| `SCOPE_MIN_DOMAINS` | No | `3` | Minimum distinct source domains required for synthesis |
+| `SCOPE_MIN_DOMAINS_EXCEPTION_CATEGORIES` | No | `Tech/AI,Markets` | Categories allowed to use lower domain threshold |
+| `SCOPE_EXCEPTION_MIN_DOMAINS` | No | `2` | Minimum domains for exception categories |
+| `SCOPE_MAX_DOMAIN_SHARE` | No | `0.6` | Maximum share of recent retrieved docs allowed from one domain |
+| `SCOPE_MAX_NEW_CLUSTERS` | No | `10` | Maximum selected candidate clusters per refresh |
+| `SCOPE_REFRESH_DRY_RUN` | No | `false` | If true, write a report without Gemini calls or `latest.json` updates |
 | `SCOPE_IMAGE_PREFIX` | No | `story-images` | GCS prefix for generated story images |
 | `SCOPE_STORY_RETENTION_DAYS` | No | `14` | Number of days old stories remain visible in `latest.json` |
 | `SCOPE_MAX_STORIES` | No | `50` | Maximum visible stories retained in `latest.json` |
+| `SCOPE_CLUSTER_DOC_MAX_AGE_DAYS` | No | `14` | Maximum age of ingested documents considered for new/reused clusters |
 | `SCOPE_INDEX_SETTLE_SECONDS` | No | `120` | Refresh delay after Discovery Engine import before synthesis |
 | `SCOPE_IMPORT_TIMEOUT_SECONDS` | No | `900` | Timeout for the Discovery Engine import operation |
 

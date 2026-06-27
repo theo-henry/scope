@@ -27,6 +27,11 @@ function isStory(value: unknown): value is Story {
   const s = value as Record<string, unknown>
   const lenses = s.lenses as Record<string, unknown> | undefined
   const image = s.image as Record<string, unknown> | undefined
+  const hasValidSourceKey =
+    s.sourceKey === undefined || typeof s.sourceKey === 'string'
+  const hasValidClusterStats =
+    s.clusterStats === undefined ||
+    (typeof s.clusterStats === 'object' && s.clusterStats !== null)
   const hasValidImage =
     image === undefined ||
     (typeof image === 'object' &&
@@ -39,6 +44,8 @@ function isStory(value: unknown): value is Story {
   return (
     typeof s.id === 'string' &&
     typeof s.slug === 'string' &&
+    hasValidSourceKey &&
+    hasValidClusterStats &&
     typeof s.headline === 'string' &&
     typeof s.category === 'string' &&
     typeof s.country === 'string' &&

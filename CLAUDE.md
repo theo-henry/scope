@@ -105,12 +105,27 @@ google-genai
 feedparser
 ```
 
-Current ingestion sources (multi-feed, `FEEDS` in `ingest.py`):
+Current ingestion sources are configured in `backend/sources.json`, not hardcoded
+in `ingest.py`. Each enabled source has:
+
+```text
+name, url, category, country, tier, enabled
+```
+
+The catalog currently includes:
 
 ```text
 BBC Business / Technology / Politics / World
 CNBC (Top News) / CNBC Finance
 The Guardian Business / Technology / US Politics / World
+NPR News
+Politico
+The Hill
+MarketWatch Top Stories
+The Verge
+TechCrunch
+Al Jazeera
+Deutsche Welle
 ```
 
 These feeds were chosen so the corpus actually covers `synthesize.py`'s `TOPICS`
@@ -198,7 +213,10 @@ must be short and on-topic (see `LESSONS.md`).
 
 `backend/refresh.py` automates this operational path: fetch RSS, upload raw +
 NDJSON, run the incremental Discovery Engine import, wait
-`SCOPE_INDEX_SETTLE_SECONDS` seconds, then call `synthesize.py`.
+`SCOPE_INDEX_SETTLE_SECONDS` seconds, then call `synthesize.py`. It uploads a
+JSON report under `gs://scope-news-raw-data/refresh-reports/`. Set
+`SCOPE_REFRESH_DRY_RUN=true` to fetch/import/report without calling Gemini or
+overwriting `synthesized/latest.json`.
 
 Generated IDs:
 
@@ -270,6 +288,17 @@ Story retention:
 - Defaults: keep stories published in the last 14 days
   (`SCOPE_STORY_RETENTION_DAYS`) and cap visible stories at 50 (`SCOPE_MAX_STORIES`).
 - New stories replace older retained stories with the same slug/id.
+- Each new story includes `sourceKey`, a stable hash of topic/category/country plus
+  sorted retrieved source URLs. If a fresh retrieved cluster has an existing
+  `sourceKey`, synthesis and image generation are skipped and the old story/image
+  are reused. Retrieved documents older than `SCOPE_CLUSTER_DOC_MAX_AGE_DAYS`
+  are ignored before this decision.
+- `synthesize.py` now evaluates multiple short candidate queries per category,
+  dedupes retrieved docs by source domain, applies quality gates, ranks viable
+  clusters, and only synthesizes the top `SCOPE_MAX_NEW_CLUSTERS`.
+- Quality defaults: at least 3 distinct domains, except Tech/AI and Markets can
+  use 2; skip clusters where one domain exceeds `SCOPE_MAX_DOMAIN_SHARE` of recent
+  retrieved docs.
 
 ## Frontend
 

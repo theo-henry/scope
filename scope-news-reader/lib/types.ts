@@ -102,6 +102,20 @@ export interface StoryImage {
   generatedAt?: string
 }
 
+export interface ClusterStats {
+  query: string
+  category: string
+  country: string
+  raw_docs: number
+  recent_docs: number
+  deduped_docs: number
+  domain_count: number
+  domains: string[]
+  top_domain_share?: number
+  tier_sum: number
+  latest_ingested_at?: string
+}
+
 /** Display metadata for each lens, in render order. */
 export const LENS_META = [
   {
@@ -127,6 +141,8 @@ export const LENS_META = [
 export interface Story {
   id: string
   slug: string
+  /** stable hash of the retrieved source cluster, used by the backend to avoid resynthesis */
+  sourceKey?: string
   category: Category
   country: Country
   headline: string
@@ -137,6 +153,8 @@ export interface Story {
   sources: Source[]
   /** generated editorial image used by feed cards and story headers */
   image?: StoryImage
+  /** backend quality metadata used for refresh reports and debugging */
+  clusterStats?: ClusterStats
   /** ISO timestamp */
   publishedAt: string
 }

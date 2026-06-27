@@ -163,14 +163,31 @@ backend/venv/bin/python backend/search_test.py "world"
     `synthesize.py` now merges new stories with existing `latest.json`, retaining
     stories for 14 days by default and capping visible feed stories at 50.
 
+14. ~~Avoid resynthesizing unchanged story clusters.~~ DONE.
+    `synthesize.py` now writes a stable `sourceKey` for each story from the
+    topic/category/country and sorted source URLs. On later refreshes, fresh
+    clusters with the same `sourceKey` reuse the existing story and image instead
+    of calling Gemini again. Retrieved documents older than
+    `SCOPE_CLUSTER_DOC_MAX_AGE_DAYS` are ignored before reuse/synthesis.
+
+15. ~~Harden refresh quality before scheduling.~~ DONE.
+    Added `backend/sources.json` source catalog and made `ingest.py` load it with
+    per-source metadata/reporting. `synthesize.py` now evaluates multiple short
+    candidate queries per category, filters recent docs, dedupes by source domain,
+    applies distinct-domain and top-domain-share gates, ranks clusters, reuses by
+    `sourceKey`, and limits selected clusters with `SCOPE_MAX_NEW_CLUSTERS`.
+    `refresh.py` writes a `refresh-reports/` JSON report and supports
+    `SCOPE_REFRESH_DRY_RUN=true` so scheduling can be validated without Gemini
+    calls or `latest.json` changes.
+
 ## Pending Tasks (required for submission)
 
-14. Run `backend/evaluate.py` and record scores.
+16. Run `backend/evaluate.py` and record scores.
     Prerequisites: GEMINI_API_KEY + SCOPE_DATA_STORE_ID + SCOPE_SEARCH_ENGINE_ID.
     Include the aggregate faithfulness / lens_distinctiveness / completeness scores
     and avg latency in the presentation deck.
 
-15. Build the presentation deck (PDF) — required deliverable.
+17. Build the presentation deck (PDF) — required deliverable.
     Must cover (maps to rubric pillars):
     - Business problem + value proposition with 2-3 quantified metrics
     - Architecture diagram: RSS → ingest → GCS → Discovery Engine → Gemini → frontend

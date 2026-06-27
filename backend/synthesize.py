@@ -77,6 +77,20 @@ IMAGE_MIME_TYPE = "image/jpeg"
 IMAGE_PREFIX = os.environ.get("SCOPE_IMAGE_PREFIX", "story-images")
 STORY_RETENTION_DAYS = int(os.environ.get("SCOPE_STORY_RETENTION_DAYS", "14"))
 MAX_STORIES = int(os.environ.get("SCOPE_MAX_STORIES", "50"))
+CLUSTER_DOC_MAX_AGE_DAYS = int(
+    os.environ.get("SCOPE_CLUSTER_DOC_MAX_AGE_DAYS", str(STORY_RETENTION_DAYS))
+)
+MIN_DOMAINS = int(os.environ.get("SCOPE_MIN_DOMAINS", "3"))
+EXCEPTION_MIN_DOMAINS = int(os.environ.get("SCOPE_EXCEPTION_MIN_DOMAINS", "2"))
+MIN_DOMAINS_EXCEPTION_CATEGORIES = {
+    category.strip()
+    for category in os.environ.get(
+        "SCOPE_MIN_DOMAINS_EXCEPTION_CATEGORIES", "Tech/AI,Markets"
+    ).split(",")
+    if category.strip()
+}
+MAX_NEW_CLUSTERS = int(os.environ.get("SCOPE_MAX_NEW_CLUSTERS", "10"))
+MAX_DOMAIN_SHARE = float(os.environ.get("SCOPE_MAX_DOMAIN_SHARE", "0.6"))
 # Auth path for Gemini. If a key is set (Gemini Developer API / AI Studio), use it;
 # otherwise fall back to Vertex AI via ADC. Both go through the google-genai SDK.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
@@ -84,15 +98,31 @@ GEMINI_SECRET_ID = os.environ.get("SCOPE_GEMINI_SECRET_ID", "")
 
 CLUSTER_SIZE = 8  # PRD: 5-8 outlets per story.
 
-# Each topic becomes one synthesized story. The retrieval query forms the
-# cluster; category/country tag it for the frontend's typed filters. Cross-source
-# same-story clustering is a deferred task (TASKS.md) that will replace this.
-TOPICS = [
+# Candidate queries are intentionally short because Discovery Engine's relevance
+# filter on this small corpus is strict. Each viable candidate may become one
+# story cluster after quality gates and sourceKey dedupe.
+CANDIDATE_TOPICS = [
     {"query": "central bank interest rates", "category": "Finance", "country": "Global"},
+    {"query": "inflation interest rates", "category": "Finance", "country": "Global"},
+    {"query": "government debt bonds", "category": "Finance", "country": "Global"},
+    {"query": "banking regulation", "category": "Finance", "country": "Global"},
     {"query": "stock market earnings", "category": "Markets", "country": "United States"},
+    {"query": "AI stocks valuation", "category": "Markets", "country": "United States"},
+    {"query": "oil prices markets", "category": "Markets", "country": "Global"},
+    {"query": "company earnings outlook", "category": "Markets", "country": "United States"},
     {"query": "tax", "category": "Politics", "country": "United States"},
+    {"query": "government budget", "category": "Politics", "country": "United States"},
+    {"query": "election campaign", "category": "Politics", "country": "United States"},
+    {"query": "immigration policy", "category": "Politics", "country": "United States"},
     {"query": "artificial intelligence regulation", "category": "Tech/AI", "country": "Global"},
+    {"query": "OpenAI AI model", "category": "Tech/AI", "country": "Global"},
+    {"query": "data privacy technology", "category": "Tech/AI", "country": "Global"},
+    {"query": "semiconductor chips", "category": "Tech/AI", "country": "Global"},
     {"query": "trade war", "category": "World", "country": "Global"},
+    {"query": "Middle East ceasefire", "category": "World", "country": "Global"},
+    {"query": "Ukraine Russia", "category": "World", "country": "Global"},
+    {"query": "European Union tariffs", "category": "World", "country": "Global"},
+    {"query": "China trade", "category": "World", "country": "Global"},
 ]
 
 SYSTEM_INSTRUCTION = (
@@ -219,9 +249,63 @@ def retrieve_cluster(client, query):
                 "link": data.get("link", ""),
                 "summary": (data.get("summary", "") or "").strip(),
                 "source": data.get("source", ""),
+                "source_tier": int(data.get("source_tier", 3) or 3),
+                "source_category": data.get("source_category", ""),
+                "source_country": data.get("source_country", ""),
+                "published_date": data.get("published_date", ""),
+                "ingested_at": data.get("ingested_at", ""),
             }
         )
     return docs
+
+
+def canonical_url(url):
+    parsed = urlparse(url or "")
+    host = parsed.netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = parsed.path.rstrip("/")
+    return f"{host}{path}" if host or path else (url or "").strip()
+
+
+def cluster_source_key(topic, docs):
+    urls = sorted(
+        canonical_url(doc.get("link", ""))
+        for doc in docs
+        if canonical_url(doc.get("link", ""))
+    )
+    if not urls:
+        titles = sorted((doc.get("title", "") or "").strip().lower() for doc in docs)
+        urls = [title for title in titles if title]
+    raw = json.dumps(
+        {
+            "topic": topic["query"],
+            "category": topic["category"],
+            "country": topic["country"],
+            "sources": urls,
+        },
+        sort_keys=True,
+    )
+    return f"src_{sha1(raw.encode('utf-8')).hexdigest()[:16]}"
+
+
+def parse_iso_datetime(raw):
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def filter_recent_docs(docs):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=CLUSTER_DOC_MAX_AGE_DAYS)
+    recent = []
+    for doc in docs:
+        timestamp = parse_iso_datetime(doc.get("ingested_at", ""))
+        if timestamp and timestamp >= cutoff:
+            recent.append(doc)
+    return recent
 
 
 def slugify(text):
@@ -232,6 +316,90 @@ def slugify(text):
 def domain_of(url):
     host = urlparse(url).netloc
     return host[4:] if host.startswith("www.") else host
+
+
+def dedupe_docs_by_domain(docs):
+    by_domain = {}
+    for doc in docs:
+        domain = domain_of(doc.get("link", ""))
+        if not domain:
+            continue
+        existing = by_domain.get(domain)
+        if not existing or int(doc.get("source_tier", 3)) < int(existing.get("source_tier", 3)):
+            by_domain[domain] = doc
+    return list(by_domain.values())
+
+
+def cluster_stats(topic, raw_docs, recent_docs, docs):
+    domains = sorted({domain_of(doc.get("link", "")) for doc in docs if doc.get("link")})
+    recent_domains = [
+        domain_of(doc.get("link", "")) for doc in recent_docs if doc.get("link")
+    ]
+    top_domain_share = 0
+    if recent_domains:
+        top_domain_share = max(recent_domains.count(domain) for domain in set(recent_domains)) / len(
+            recent_domains
+        )
+    tiers = [int(doc.get("source_tier", 3) or 3) for doc in docs]
+    timestamps = [
+        timestamp
+        for timestamp in (parse_iso_datetime(doc.get("ingested_at", "")) for doc in docs)
+        if timestamp
+    ]
+    latest_ingested_at = max(timestamps, default=None)
+    return {
+        "query": topic["query"],
+        "category": topic["category"],
+        "country": topic["country"],
+        "raw_docs": len(raw_docs),
+        "recent_docs": len(recent_docs),
+        "deduped_docs": len(docs),
+        "domain_count": len(domains),
+        "domains": domains,
+        "top_domain_share": round(top_domain_share, 3),
+        "tier_sum": sum(tiers),
+        "latest_ingested_at": latest_ingested_at.isoformat() if latest_ingested_at else "",
+    }
+
+
+def required_domain_count(category):
+    if category in MIN_DOMAINS_EXCEPTION_CATEGORIES:
+        return EXCEPTION_MIN_DOMAINS
+    return MIN_DOMAINS
+
+
+def quality_skip_reason(topic, stats):
+    required_domains = required_domain_count(topic["category"])
+    if stats["recent_docs"] == 0:
+        return f"no recent documents within {CLUSTER_DOC_MAX_AGE_DAYS} days"
+    if stats["domain_count"] < required_domains:
+        return (
+            f"only {stats['domain_count']} distinct domains; "
+            f"requires {required_domains}"
+        )
+    if stats["deduped_docs"] < required_domains:
+        return (
+            f"only {stats['deduped_docs']} deduped documents; "
+            f"requires {required_domains}"
+        )
+    if stats["top_domain_share"] > MAX_DOMAIN_SHARE:
+        return (
+            f"top domain share {stats['top_domain_share']:.0%}; "
+            f"max allowed {MAX_DOMAIN_SHARE:.0%}"
+        )
+    return ""
+
+
+def cluster_rank(cluster):
+    stats = cluster["stats"]
+    latest = parse_iso_datetime(stats.get("latest_ingested_at"))
+    recency = latest.timestamp() if latest else 0
+    return (
+        stats["domain_count"],
+        -stats["tier_sum"],
+        stats["deduped_docs"],
+        recency,
+    )
 
 
 def cluster_to_sources(docs):
@@ -440,12 +608,13 @@ def generate_story_image(genai_client, storage_client, story, docs):
     return generate_imagen_style_image(genai_client, storage_client, story, prompt)
 
 
-def build_story(topic, docs, generated):
+def build_story(topic, docs, generated, stats=None):
     sources = cluster_to_sources(docs)
     headline = generated["headline"]
-    return {
+    story = {
         "id": f"st_{slugify(headline)[:24]}",
         "slug": slugify(headline),
+        "sourceKey": cluster_source_key(topic, docs),
         "category": topic["category"],
         "country": topic["country"],
         "headline": headline,
@@ -454,20 +623,17 @@ def build_story(topic, docs, generated):
         "sources": sources,
         "publishedAt": datetime.now(timezone.utc).isoformat(),
     }
+    if stats:
+        story["clusterStats"] = stats
+    return story
 
 
 def parse_story_time(story):
-    raw = story.get("publishedAt")
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    return parse_iso_datetime(story.get("publishedAt"))
 
 
 def story_key(story):
-    return story.get("slug") or story.get("id") or story.get("headline")
+    return story.get("sourceKey") or story.get("slug") or story.get("id") or story.get("headline")
 
 
 def load_existing_stories(bucket):
@@ -509,10 +675,79 @@ def merge_retained_stories(new_stories, existing_stories):
     return stories[:MAX_STORIES]
 
 
-def upload_cache(stories):
+def existing_stories_by_source_key(existing_stories):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=STORY_RETENTION_DAYS)
+    return {
+        story["sourceKey"]: story
+        for story in existing_stories
+        if isinstance(story.get("sourceKey"), str)
+        and (parse_story_time(story) or datetime.min.replace(tzinfo=timezone.utc)) >= cutoff
+    }
+
+
+def evaluate_candidate_clusters(search_client):
+    selected_by_key = {}
+    skipped = []
+    candidates = []
+
+    for topic in CANDIDATE_TOPICS:
+        raw_docs = retrieve_cluster(search_client, topic["query"])
+        recent_docs = filter_recent_docs(raw_docs)
+        docs = dedupe_docs_by_domain(recent_docs)
+        stats = cluster_stats(topic, raw_docs, recent_docs, docs)
+        source_key = cluster_source_key(topic, docs) if docs else ""
+        skip_reason = quality_skip_reason(topic, stats)
+        report_item = {
+            **stats,
+            "sourceKey": source_key,
+            "skip_reason": skip_reason,
+        }
+
+        if skip_reason:
+            skipped.append(report_item)
+            print(f"Skipping '{topic['query']}': {skip_reason}.")
+            continue
+
+        cluster = {
+            "topic": topic,
+            "docs": docs,
+            "sourceKey": source_key,
+            "stats": stats,
+        }
+        existing = selected_by_key.get(source_key)
+        if existing and cluster_rank(existing) >= cluster_rank(cluster):
+            skipped.append({**report_item, "skip_reason": "duplicate lower-ranked sourceKey"})
+            continue
+        if existing:
+            skipped.append(
+                {
+                    **existing["stats"],
+                    "sourceKey": source_key,
+                    "skip_reason": "duplicate lower-ranked sourceKey",
+                }
+            )
+        selected_by_key[source_key] = cluster
+        candidates.append(report_item)
+
+    selected = sorted(selected_by_key.values(), key=cluster_rank, reverse=True)
+    overflow = selected[MAX_NEW_CLUSTERS:]
+    selected = selected[:MAX_NEW_CLUSTERS]
+    for cluster in overflow:
+        skipped.append(
+            {
+                **cluster["stats"],
+                "sourceKey": cluster["sourceKey"],
+                "skip_reason": f"outside top {MAX_NEW_CLUSTERS} ranked clusters",
+            }
+        )
+
+    return selected, candidates, skipped
+
+
+def upload_cache(stories, existing_stories=None, bucket=None):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    bucket = storage.Client().bucket(BUCKET_NAME)
-    existing_stories = load_existing_stories(bucket)
+    bucket = bucket or storage.Client().bucket(BUCKET_NAME)
+    existing_stories = existing_stories if existing_stories is not None else load_existing_stories(bucket)
     retained_stories = merge_retained_stories(stories, existing_stories)
     body = json.dumps(retained_stories, indent=2, ensure_ascii=False)
 
@@ -529,10 +764,14 @@ def upload_cache(stories):
         f"({len(stories)} new, {len(existing_stories)} previous, "
         f"{STORY_RETENTION_DAYS} day retention, max {MAX_STORIES})."
     )
-    return f"gs://{BUCKET_NAME}/{archive}", f"gs://{BUCKET_NAME}/synthesized/latest.json"
+    return (
+        f"gs://{BUCKET_NAME}/{archive}",
+        f"gs://{BUCKET_NAME}/synthesized/latest.json",
+        retained_stories,
+    )
 
 
-def main():
+def main(dry_run=False, refresh_report=None):
     if not DATA_STORE_ID and not SEARCH_ENGINE_ID:
         raise SystemExit(
             "Set SCOPE_DATA_STORE_ID (and optionally SCOPE_SEARCH_ENGINE_ID) "
@@ -540,17 +779,68 @@ def main():
         )
 
     search_client = build_search_client()
-    genai_client = build_genai_client()
     storage_client = storage.Client()
+    bucket = storage_client.bucket(BUCKET_NAME)
+    existing_stories = load_existing_stories(bucket)
+    existing_by_source_key = existing_stories_by_source_key(existing_stories)
 
+    clusters, candidates, skipped = evaluate_candidate_clusters(search_client)
+    report = {
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "dry_run": dry_run,
+        "candidate_count": len(candidates),
+        "selected_count": len(clusters),
+        "skipped_count": len(skipped),
+        "reused_count": 0,
+        "synthesized_count": 0,
+        "image_generated_count": 0,
+        "image_failed_count": 0,
+        "final_visible_count": 0,
+        "candidates": candidates,
+        "skipped": skipped,
+        "clusters": [],
+    }
     stories = []
-    for topic in TOPICS:
-        docs = retrieve_cluster(search_client, topic["query"])
-        if not docs:
-            print(f"Skipping '{topic['query']}': no documents retrieved.")
+    genai_client = None
+    for cluster in clusters:
+        topic = cluster["topic"]
+        docs = cluster["docs"]
+        source_key = cluster["sourceKey"]
+        cluster_report = {
+            **cluster["stats"],
+            "sourceKey": source_key,
+            "action": "",
+            "headline": "",
+            "image": "",
+        }
+        if source_key in existing_by_source_key:
+            story = existing_by_source_key[source_key]
+            stories.append(story)
+            report["reused_count"] += 1
+            cluster_report["action"] = "reused"
+            cluster_report["headline"] = story.get("headline", "")
+            print(
+                f"Reused: {story['headline']} "
+                f"({len(story.get('sources', []))} sources, sourceKey {source_key})"
+            )
+            report["clusters"].append(cluster_report)
             continue
+        if dry_run:
+            cluster_report["action"] = "would_synthesize"
+            report["clusters"].append(cluster_report)
+            print(
+                f"Dry run: would synthesize '{topic['query']}' "
+                f"({cluster['stats']['domain_count']} domains, sourceKey {source_key})"
+            )
+            continue
+
+        if genai_client is None:
+            genai_client = build_genai_client()
         generated = synthesize_lenses(genai_client, docs)
-        story = build_story(topic, docs, generated)
+        story = build_story(topic, docs, generated, stats=cluster["stats"])
+        report["synthesized_count"] += 1
+        cluster_report["action"] = "synthesized"
+        cluster_report["headline"] = story["headline"]
         try:
             story["image"] = generate_story_image(
                 genai_client=genai_client,
@@ -558,19 +848,38 @@ def main():
                 story=story,
                 docs=docs,
             )
+            report["image_generated_count"] += 1
+            cluster_report["image"] = "generated"
             print(f"Generated image: {story['image']['gcsUri']}")
         except Exception as exc:
+            report["image_failed_count"] += 1
+            cluster_report["image"] = f"failed: {exc}"
             print(f"Image generation failed for '{story['headline']}': {exc}")
         stories.append(story)
         print(f"Synthesized: {story['headline']} ({len(docs)} sources)")
+        report["clusters"].append(cluster_report)
+
+    if dry_run:
+        print("\nDry run complete; latest.json was not updated.")
+        report["finished_at"] = datetime.now(timezone.utc).isoformat()
+        return report
 
     if not stories:
-        raise SystemExit("No stories synthesized; check retrieval and topics.")
+        raise SystemExit("No stories synthesized or reused; check retrieval and topics.")
 
-    archive_uri, latest_uri = upload_cache(stories)
+    archive_uri, latest_uri, retained_stories = upload_cache(
+        stories,
+        existing_stories=existing_stories,
+        bucket=bucket,
+    )
+    report["archive_uri"] = archive_uri
+    report["latest_uri"] = latest_uri
+    report["final_visible_count"] = len(retained_stories)
+    report["finished_at"] = datetime.now(timezone.utc).isoformat()
     print(f"\nUploaded {len(stories)} synthesized stories to:")
     print(f"  archive: {archive_uri}")
     print(f"  latest:  {latest_uri}")
+    return report
 
 
 if __name__ == "__main__":

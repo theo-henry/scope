@@ -1,0 +1,146 @@
+[
+  {
+    "name": "BBC Business",
+    "url": "http://feeds.bbci.co.uk/news/business/rss.xml",
+    "category": "Finance",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "BBC Technology",
+    "url": "http://feeds.bbci.co.uk/news/technology/rss.xml",
+    "category": "Tech/AI",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "BBC Politics",
+    "url": "http://feeds.bbci.co.uk/news/politics/rss.xml",
+    "category": "Politics",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "BBC World News",
+    "url": "http://feeds.bbci.co.uk/news/world/rss.xml",
+    "category": "World",
+    "country": "Global",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "CNBC",
+    "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "category": "Markets",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "CNBC Finance",
+    "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+    "category": "Finance",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian Business",
+    "url": "https://www.theguardian.com/business/rss",
+    "category": "Finance",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian Technology",
+    "url": "https://www.theguardian.com/technology/rss",
+    "category": "Tech/AI",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian US Politics",
+    "url": "https://www.theguardian.com/us-news/us-politics/rss",
+    "category": "Politics",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian World",
+    "url": "https://www.theguardian.com/world/rss",
+    "category": "World",
+    "country": "Global",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "NPR News",
+    "url": "https://feeds.npr.org/1001/rss.xml",
+    "category": "World",
+    "country": "United States",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "Politico",
+    "url": "https://rss.politico.com/politics-news.xml",
+    "category": "Politics",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Hill",
+    "url": "https://thehill.com/feed/",
+    "category": "Politics",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "MarketWatch Top Stories",
+    "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+    "category": "Markets",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Verge",
+    "url": "https://www.theverge.com/rss/index.xml",
+    "category": "Tech/AI",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "TechCrunch",
+    "url": "https://techcrunch.com/feed/",
+    "category": "Tech/AI",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Al Jazeera",
+    "url": "https://www.aljazeera.com/xml/rss/all.xml",
+    "category": "World",
+    "country": "Global",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Deutsche Welle",
+    "url": "https://rss.dw.com/rdf/rss-en-all",
+    "category": "World",
+    "country": "Global",
+    "tier": 2,
+    "enabled": true
+  }
+]

@@ -16,11 +16,13 @@ Run:
 
 import os
 import sys
+import json
 import time
 from pathlib import Path
+from datetime import datetime, timezone
 
 from google.api_core.client_options import ClientOptions
-from google.cloud import discoveryengine
+from google.cloud import discoveryengine, storage
 
 
 def load_local_env_file():
@@ -52,6 +54,8 @@ LOCATION = os.environ.get("DISCOVERY_ENGINE_LOCATION", "global")
 DATA_STORE_ID = os.environ.get("SCOPE_DATA_STORE_ID", "")
 IMPORT_TIMEOUT_SECONDS = int(os.environ.get("SCOPE_IMPORT_TIMEOUT_SECONDS", "900"))
 INDEX_SETTLE_SECONDS = int(os.environ.get("SCOPE_INDEX_SETTLE_SECONDS", "120"))
+DRY_RUN = os.environ.get("SCOPE_REFRESH_DRY_RUN", "").lower() in {"1", "true", "yes"}
+BUCKET_NAME = os.environ.get("SCOPE_BUCKET_NAME", "scope-news-raw-data")
 
 
 def build_document_client():
@@ -97,26 +101,61 @@ def import_documents(ndjson_uri):
     print(f"Import operation: {operation_name}")
     operation.result(timeout=IMPORT_TIMEOUT_SECONDS)
     print("Discovery Engine import completed.")
+    return operation_name
+
+
+def upload_refresh_report(report):
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    blob_name = f"refresh-reports/refresh_{timestamp}.json"
+    body = json.dumps(report, indent=2, ensure_ascii=False)
+    storage.Client().bucket(BUCKET_NAME).blob(blob_name).upload_from_string(
+        body,
+        content_type="application/json",
+    )
+    uri = f"gs://{BUCKET_NAME}/{blob_name}"
+    print(f"Uploaded refresh report to {uri}")
+    return uri
 
 
 def main():
+    report = {
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "dry_run": DRY_RUN,
+        "ingest": {},
+        "import": {},
+    }
     print("Fetching RSS articles...")
-    articles = ingest.fetch_articles()
+    articles, source_stats = ingest.fetch_articles_with_report()
     if not articles:
         raise SystemExit("No articles fetched; aborting refresh.")
+    report["ingest"] = {
+        "article_count": len(articles),
+        "source_count": len(source_stats),
+        "sources": source_stats,
+    }
 
     raw_json_uri, ndjson_uri = ingest.upload_articles_to_gcs(articles)
     print(f"Uploaded {len(articles)} raw articles to {raw_json_uri}")
     print(f"Uploaded {len(articles)} Agent Search documents to {ndjson_uri}")
+    report["ingest"]["raw_json_uri"] = raw_json_uri
+    report["ingest"]["ndjson_uri"] = ndjson_uri
 
-    import_documents(ndjson_uri)
+    operation_name = import_documents(ndjson_uri)
+    report["import"] = {
+        "operation": operation_name,
+        "ndjson_uri": ndjson_uri,
+        "index_settle_seconds": INDEX_SETTLE_SECONDS,
+    }
 
     if INDEX_SETTLE_SECONDS > 0:
         print(f"Waiting {INDEX_SETTLE_SECONDS}s for indexing to settle...")
         time.sleep(INDEX_SETTLE_SECONDS)
 
     print("Running synthesis and image generation...")
-    synthesize.main()
+    synthesis_report = synthesize.main(dry_run=DRY_RUN, refresh_report=report)
+    report["synthesis"] = synthesis_report
+    report["finished_at"] = datetime.now(timezone.utc).isoformat()
+    upload_refresh_report(report)
 
 
 if __name__ == "__main__":
