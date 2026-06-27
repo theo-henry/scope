@@ -162,6 +162,8 @@ backend/venv/bin/python backend/synthesize.py
 The shared Gemini key is stored in Secret Manager as `scope-gemini-api-key`.
 Prefer `SCOPE_GEMINI_SECRET_ID=scope-gemini-api-key` for synthesis runs; use a
 direct `GEMINI_API_KEY` only for short-lived local testing.
+For local testing, `backend/synthesize.py` also reads a repo-root `.env` file
+before it reads environment variables. `.env` is gitignored.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|

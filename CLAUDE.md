@@ -17,6 +17,8 @@ This file is the central handoff document for Scope's cloud architecture, infras
   `scope-gemini-api-key` in project `scope-mvp-prod`. Do not print or commit the
   value. Backend synthesis should use `SCOPE_GEMINI_SECRET_ID=scope-gemini-api-key`
   unless a short-lived local `GEMINI_API_KEY` override is intentionally exported.
+- `backend/synthesize.py` also loads a repo-root `.env` file before reading
+  process env vars. `.env` is gitignored and is only for local/manual runs.
 - Collaborators must access Google Cloud through their own Google account.
 - The project owner/admin must grant collaborators IAM access to `scope-mvp-prod` in Google Cloud Console.
 - Minimum likely roles for active setup work:

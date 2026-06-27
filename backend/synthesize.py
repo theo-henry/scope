@@ -29,6 +29,7 @@ import json
 import os
 import re
 from hashlib import sha1
+from pathlib import Path
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -36,6 +37,24 @@ from google import genai
 from google.api_core.client_options import ClientOptions
 from google.cloud import discoveryengine, storage
 from google.genai import types
+
+
+def load_local_env_file():
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_local_env_file()
 
 
 PROJECT_ID = os.environ.get("SCOPE_PROJECT_ID", "scope-mvp-prod")
@@ -342,7 +361,6 @@ def generate_native_gemini_image(genai_client, storage_client, story, prompt):
             image_config=types.ImageConfig(
                 aspect_ratio=IMAGE_ASPECT_RATIO,
                 image_size="2K",
-                person_generation="ALLOW_NONE",
             ),
         ),
     )
