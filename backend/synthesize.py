@@ -61,9 +61,9 @@ CLUSTER_SIZE = 8  # PRD: 5-8 outlets per story.
 TOPICS = [
     {"query": "central bank interest rates", "category": "Finance", "country": "Global"},
     {"query": "stock market earnings", "category": "Markets", "country": "United States"},
-    {"query": "government budget politics", "category": "Politics", "country": "United States"},
+    {"query": "tax", "category": "Politics", "country": "United States"},
     {"query": "artificial intelligence regulation", "category": "Tech/AI", "country": "Global"},
-    {"query": "global trade and economy", "category": "World", "country": "Global"},
+    {"query": "trade war", "category": "World", "country": "Global"},
 ]
 
 SYSTEM_INSTRUCTION = (

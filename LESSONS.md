@@ -10,7 +10,7 @@
 - The `gcloud discovery-engine` command group may require alpha/beta SDK components; the Console path is the reliable setup path.
 - Discovery Engine structured Cloud Storage imports need JSON Lines / NDJSON, not a single JSON array.
 - Keep raw JSON arrays for audit/debugging and NDJSON files for indexing.
-- The current ingestion source is BBC World RSS only; this is MVP bootstrap data, not the final multi-source feed.
+- Ingestion is now multi-feed (`FEEDS` in `ingest.py`): BBC Business/Tech/Politics/World, CNBC + CNBC Finance, Guardian Business/Tech/US-Politics/World. The original BBC-World-only feed did not cover `synthesize.py`'s finance/markets/politics/AI topics, so every synthesis query returned 0 docs. The ingested corpus MUST match the synthesis TOPICS or no stories are produced.
 - Python bytecode and virtual environments should stay ignored by git.
 - The frontend should consume cached synthesized JSON, not trigger live RSS, Discovery Engine, or Gemini calls from the browser.
 - Record generated Discovery Engine data store and search app IDs in `CLAUDE.md` as soon as they exist.
@@ -22,3 +22,6 @@
 - Gemini 1.5 Flash (the PRD model) is no longer served on the Gemini Developer API; use `gemini-2.5-flash`. `synthesize.py` defaults to it and supports both auth paths — `GEMINI_API_KEY`/`GOOGLE_API_KEY` (Developer API, used in Cloud Shell) or Vertex ADC.
 - Synthesis runs in Cloud Shell, not locally: this machine has no `gcloud` and no project key. Pull the committed script and run it there. Do NOT hand-write a parallel synthesis script — the committed `synthesize.py` is the source of truth for the lens schema.
 - The committed script writes `synthesized/stories_<ts>.json`. A stale ad-hoc file `synthesized/20260627T124918Z.json` has the wrong flat schema; the future frontend loader should match `stories_*.json` only.
+- New NDJSON uploaded to `agent-search/` is NOT searchable until imported. Trigger an incremental import (`DocumentServiceClient.import_documents`, data_schema `custom`, `id_field="id"`, `ReconciliationMode.INCREMENTAL`) against `default_branch`; indexing settles in a few minutes.
+- Discovery Engine's relevance filter on this small store is strict: short, on-topic queries retrieve (`tax`, `trade war`, `central bank interest rates`), but keyword-stuffed phrasings (`government budget politics`, `global trade and economy`, even `news`) return 0 docs even when matching content exists. Keep `synthesize.py` TOPIC queries short and concrete.
+- Gemini via Vertex AI returns 404 for publisher models on `scope-mvp-prod` (no Vertex Gemini access granted), and the metadata/ADC token lacks the `generative-language` scope. Use the `GEMINI_API_KEY` Developer API path until Vertex Gemini access is enabled.

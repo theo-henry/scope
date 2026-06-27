@@ -94,18 +94,29 @@ Current dependencies:
 
 ```text
 google-cloud-storage
+google-cloud-discoveryengine
+google-genai
 feedparser
 ```
 
-Current ingestion source:
+Current ingestion sources (multi-feed, `FEEDS` in `ingest.py`):
 
 ```text
-http://feeds.bbci.co.uk/news/world/rss.xml
+BBC Business / Technology / Politics / World
+CNBC (Top News) / CNBC Finance
+The Guardian Business / Technology / US Politics / World
 ```
+
+These feeds were chosen so the corpus actually covers `synthesize.py`'s `TOPICS`
+(Finance, Markets, Politics, Tech/AI, World). The original single BBC World feed did
+not match those topics, so every synthesis query returned 0 docs — see `LESSONS.md`.
 
 Current script behavior:
 
-- Fetches top 10 BBC World RSS articles.
+- Fetches up to `PER_FEED_LIMIT` (12) articles per feed across all sources above.
+- Generates a source-agnostic `art-<sha1(link)>` id (stable across runs, so
+  re-ingestion upserts rather than duplicates), strips HTML from summaries, and
+  dedupes by id across feeds.
 - Normalizes each article with:
   - `id`
   - `title`
@@ -127,9 +138,12 @@ gs://scope-news-raw-data/agent-search/
 Known successful object examples:
 
 ```text
-gs://scope-news-raw-data/raw/bbc_world_20260627T095745Z.json
-gs://scope-news-raw-data/agent-search/bbc_world_20260627T095745Z.ndjson
+gs://scope-news-raw-data/raw/scope_news_20260627T134519Z.json
+gs://scope-news-raw-data/agent-search/scope_news_20260627T134519Z.ndjson
 ```
+
+Earlier single-feed objects (`bbc_world_*`) remain in the bucket and data store;
+the `art-*` ids do not collide with the original `bbc-*` ids.
 
 Run ingestion locally:
 
@@ -166,8 +180,15 @@ Created resources:
 
 - Data store display name: `scope-news-raw-datastore`
 - Search app display name: `scope-news-search`
-- Imported documents: `10`
-- Verified search query: `BBC news`
+- Imported documents: `123` (10 original BBC World + 113 multi-feed, incremental upsert)
+- Verified search queries: `BBC news`, plus all `synthesize.py` TOPICS
+
+Re-importing after ingestion: new NDJSON in `gs://scope-news-raw-data/agent-search/`
+is NOT searchable until imported into the data store. Trigger an incremental import
+with `DocumentServiceClient.import_documents` (data_schema `custom`, `id_field="id"`,
+`ReconciliationMode.INCREMENTAL`) against the `default_branch`. Indexing settles in a
+few minutes; the relevance filter on this small store is strict, so synthesis queries
+must be short and on-topic (see `LESSONS.md`).
 
 Generated IDs:
 
@@ -191,18 +212,34 @@ gcloud alpha discovery-engine engines list \
 
 ## Vertex AI / Gemini Setup
 
-Synthesis script written (`backend/synthesize.py`); not yet run against Vertex.
+Synthesis verified end-to-end: `backend/synthesize.py` produced 5 lens stories to
+`gs://scope-news-raw-data/synthesized/stories_20260627T135452Z.json`.
 
 Model layer:
 
 - Model family: Gemini
-- PRD target: Gemini 1.5 Flash (`SCOPE_GEMINI_MODEL`, default `gemini-1.5-flash`)
-- SDK: `google-genai` in Vertex mode (`genai.Client(vertexai=True, ...)`)
+- Model in use: `gemini-2.5-flash` (`SCOPE_GEMINI_MODEL`, default in code).
+  PRD targeted Gemini 1.5 Flash, but 1.5 / 2.0 Flash are no longer served on the
+  Gemini Developer API; 2.5 Flash is confirmed working with the project key.
+- SDK: `google-genai`. Two auth paths in `build_genai_client()`:
+  - Gemini Developer API key (`GEMINI_API_KEY` / `GOOGLE_API_KEY`) — the path that
+    works in this project today.
+  - Vertex AI via ADC (`genai.Client(vertexai=True, ...)`) — currently returns 404
+    for Gemini publisher models on `scope-mvp-prod` (no Vertex Gemini access granted),
+    so prefer the API-key path until that changes. See `LESSONS.md`.
 - Purpose: synthesize retrieved article clusters into Scope's Tri-Perspective Lens JSON.
 
-The Gemini synthesis script must not run until Discovery Engine retrieval has been
-verified (it now is — see `TASKS.md`). Before running `synthesize.py`: confirm Vertex
-AI is enabled, ADC is configured, and the data store IDs above are exported.
+Run (Gemini Developer API key path, as used in Cloud Shell):
+
+```bash
+export GEMINI_API_KEY="..."
+export SCOPE_DATA_STORE_ID="scope-news-raw-datastore"
+export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
+backend/venv/bin/python backend/synthesize.py
+```
+
+Output: `gs://scope-news-raw-data/synthesized/stories_<timestamp>.json` (array of
+Story objects, each with `lenses.institutional/reformist/skeptic`).
 
 The Tri-Perspective Lens JSON schema is the shared backend↔frontend contract:
 `LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` mirrors `Story` / `TriPerspectiveLens`
