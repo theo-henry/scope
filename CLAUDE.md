@@ -1,225 +1,232 @@
-# CLAUDE.md — Scope
+# Scope Cloud Memory
 
-Root context file for the Scope project. Any AI coding agent (Claude Code, Cursor, etc.)
-reads this first, before exploring the codebase. It is the source of truth for what we're
-building, how the repo is organized, and how the agent should work here — including how to
-read code efficiently and how to keep its own memory current.
+This file is the central handoff document for Scope's cloud architecture, infrastructure state, and integration assumptions. Any agent or engineer taking over this project must read this file first, then read `TASKS.md` and `LESSONS.md` before making changes. Update all three files continuously as the project moves forward.
 
-> Scope of this file: the **project facts** (top half) are also pasted into v0 alongside
-> `PRD.md` and `DESIGN.md`. The **working protocol** (bottom half — memory, self-update,
-> efficiency) is for coding agents on GitHub; v0 ignores it.
+## Project Identity
 
----
+- Product name: Scope
+- GCP project ID: `scope-mvp-prod`
+- Primary region/location for Discovery Engine / Agent Search: `global`
+- Raw data bucket: `scope-news-raw-data`
+- Current local repository root: `/Users/nicolaswilches/ds/projects/scope`
 
-## What I'm building
+## Access And Credential Notes
 
-Scope is a news website that uses generative AI to cut through noise and show how trustworthy
-a story is. A user sets preferences — news categories (Finance, Markets, Politics, Tech/AI,
-World, Business, Science) and countries — and Scope returns only the most recent matching
-stories. For any story, Scope surfaces the same event across multiple outlets, produces a
-neutral AI synthesis, marks where sources agree and diverge, attaches a bias label to each
-outlet, and gives a validity score based on how many independent and credible outlets
-corroborate it. A grounded in-site chatbot answers questions using only the loaded articles
-and cites its sources. Lead business case: finance/markets news for professionals who need a
-fast, low-noise, low-risk morning read; politics is the second flagship vertical.
+- No private credentials, access tokens, service account keys, or OAuth refresh tokens should be committed to the repository.
+- Collaborators must access Google Cloud through their own Google account.
+- The project owner/admin must grant collaborators IAM access to `scope-mvp-prod` in Google Cloud Console.
+- Minimum likely roles for active setup work:
+  - Storage Admin or scoped bucket permissions for `scope-news-raw-data`
+  - Discovery Engine Admin for Agent Search / data store setup
+  - Vertex AI User or Vertex AI Admin for later Gemini integration
+  - Service Usage Viewer if collaborators need to inspect enabled APIs
+- Local ADC setup command for each collaborator:
 
-It is a Ground News–style product with the editorial calm of The New York Times. The brand is
-black/white/grey with restrained silver "AI" gradients (see `DESIGN.md`). The defining promise
-is **credibility, not volume** — Scope never fabricates news; it synthesizes and cites real
-sourced articles.
-
-This is a university Generative AI final project: the grade rewards a real agentic/RAG
-backend, a working frontend, end-to-end integration, a clear quantified business value, and a
-flawless live demo. Decisions should serve those.
-
----
-
-## Project status
-
-- **Phase 1 — v0 prototype.** Generate the frontend in v0 (Vercel) from `PRD.md` + `DESIGN.md`.
-- **Phase 2 — GitHub build.** Bring the code into this repo and build the real backend pipeline,
-  Supabase, and the API fallback chain. This is where coding agents and this protocol apply.
-- Auth (Supabase) and multi-user profiles are deferred; v1 runs on a single hardcoded demo
-  profile.
-
----
-
-## Tech stack
-
-- **Framework:** Next.js (App Router) + TypeScript.
-- **Styling:** Tailwind CSS + shadcn/ui, themed entirely from the tokens in `DESIGN.md`.
-- **Motion:** Framer Motion + Lenis (smooth scroll). Shared constants in `lib/motion.ts`.
-- **Backend:** Next.js serverless route handlers (no separate service). Agentic pipeline:
-  fetch → cluster same-story articles → synthesize → score validity → persist.
-- **Data:** Supabase (Postgres + pgvector) for articles, stories, embeddings, and cache.
-- **LLM:** OpenAI via a thin `lib/llm.ts` abstraction (`generate()`, `embed()`), model read
-  from env so it can be swapped. Defaults: `gpt-4o-mini`, `text-embedding-3-small`.
-- **News data (all free, fallback chain):** GNews → NewsData.io → Currents → GDELT (no key,
-  the always-on tail) → The Guardian (full-text anchor).
-
----
-
-## Repository structure
-
-```
-app/
-  page.tsx                 # Feed (home)
-  onboarding/page.tsx      # Preferences
-  story/[slug]/page.tsx    # Coverage view (the hero)
-  settings/page.tsx
-  api/
-    refresh/route.ts       # runs the ingestion pipeline (fetch→cluster→synthesize→persist)
-    chat/route.ts          # grounded chatbot (RAG over persisted articles)
-components/
-  ui/                      # shadcn primitives, restyled to DESIGN.md tokens
-  feed/  coverage/  chatbot/
-lib/
-  llm.ts                   # provider/model abstraction (env-driven)
-  news/                    # one adapter per source + the fallback orchestrator
-  cluster.ts               # same-story clustering (embeddings + cosine)
-  validity.ts              # validity-score formula
-  supabase.ts  motion.ts
-data/
-  outlet-bias.json         # curated static outlet lean + reliability labels
-memory/                    # agent memory (see "Memory & learning system")
-PRD.md  DESIGN.md  CLAUDE.md  README.md
+```bash
+gcloud auth application-default login
+gcloud config set project scope-mvp-prod
+gcloud auth application-default set-quota-project scope-mvp-prod
 ```
 
-Update this tree in this file whenever the real structure diverges.
+## Enabled Cloud Services
 
----
+The project is expected to use these GCP APIs:
 
-## Commands
+- Cloud Storage: `storage.googleapis.com`
+- Discovery Engine / Agent Search: `discoveryengine.googleapis.com`
+- Vertex AI / AI Platform: `aiplatform.googleapis.com`
 
-Fill these in once scaffolded; keep them accurate so agents don't guess.
+Verification command:
 
-```
-npm run dev      # local dev server
-npm run build    # production build
-npm run lint     # eslint
-npm run test     # tests
-```
-
----
-
-## Environment variables (server-side; never exposed to the client)
-
-```
-OPENAI_API_KEY            # the model key; swappable
-LLM_MODEL=gpt-4o-mini
-EMBED_MODEL=text-embedding-3-small
-GNEWS_API_KEY
-NEWSDATA_API_KEY
-CURRENTS_API_KEY
-GUARDIAN_API_KEY
-# GDELT needs no key
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY   # server only
+```bash
+gcloud services list --enabled \
+  --project="scope-mvp-prod" \
+  --filter="name:(storage.googleapis.com discoveryengine.googleapis.com aiplatform.googleapis.com)"
 ```
 
----
+Cloud context check:
 
-## Hard constraints (do not violate)
+```bash
+export PROJECT_ID="scope-mvp-prod"
+export LOCATION="global"
+export BUCKET_NAME="scope-news-raw-data"
 
-1. **Never fabricate news.** All synthesis is grounded in real fetched articles and cites
-   them. The chatbot answers only from loaded sources and says "not in the sources" otherwise.
-2. **News APIs must stay free.** Use the fallback chain; never add a paid tier. GDELT is the
-   guaranteed tail so the app never runs dry.
-3. **Keys are server-side only.** Model and news calls run in route handlers. No key ever
-   reaches the client or a `NEXT_PUBLIC_` var.
-4. **The demo reads the cache, not live APIs.** Live fetching happens in `api/refresh`; pages
-   read persisted data so a rate limit can never break a live demo.
-5. **Design = `DESIGN.md`.** Monochrome brand, silver gradients, Switzer font, blur-up motion.
-   Color is reserved for the validity signal only.
-
----
-
-## Code conventions
-
-- TypeScript strict; no `any` without a comment justifying it.
-- Components reference design **tokens**, never raw hex.
-- Each news source is its own adapter returning the normalized `Article` shape; the
-  orchestrator handles failover. Don't special-case sources outside their adapter.
-- Keep route handlers thin; put logic in `lib/`.
-- Small, single-purpose functions. Prefer reading an existing pattern over inventing a new one.
-
----
-
-## How to work in this repo (agent protocol)
-
-### Read efficiently — don't burn tokens
-1. **Start here, then `memory/`.** This file plus `memory/learnings.md` usually answer "how
-   does X work" without opening source.
-2. **Search before reading.** Use grep/glob to locate the exact file and line; read targeted
-   ranges, not whole directories. Never `cat` a binary or a generated/lock file.
-3. **Read the smallest unit that answers the question.** Don't re-read files already in
-   context; trust what you've already seen this session.
-4. **Reuse patterns.** Before writing a component or adapter, search for a sibling that already
-   solves a similar problem and match its shape.
-5. **Check `memory/learnings.md` before debugging.** A known gotcha may already be recorded.
-
-### Before writing code
-- Confirm the change fits `What I'm building` and the hard constraints.
-- Locate where it belongs in the structure above; if it doesn't fit, that's a signal to ask,
-  not to invent a new top-level area.
-
-### Keep your own memory current (self-update)
-After any task that revealed something durable — a non-obvious decision, an API quirk, a
-recurring bug, a convention — **write it down before finishing**. Memory is how the next
-session avoids re-learning. Specifically:
-- A **decision** (why we chose X over Y) → `memory/decisions.md`.
-- A **gotcha / fix / surprising behavior** → `memory/learnings.md`.
-- A **new or changed convention** → `memory/conventions.md`.
-- A change to stack, structure, commands, or env → update the relevant **section of this file**.
-
-Rules for memory entries: keep them short and factual, one entry per fact, dated, tagged.
-Update an existing entry instead of duplicating. Don't record secrets, keys, or anything that
-belongs in `.env`. Don't journal routine work — only durable, reusable knowledge.
-
----
-
-## Memory & learning system
-
-Lives in `memory/`. Plain markdown, append-only logs. Every entry carries a `[tag]` and a
-date. Tags starting with `project_` mark durable project facts (stack, API behavior,
-architecture) — the `prd-draft` skill reads these as input, so keep them accurate.
-
-**Format (use everywhere):**
-```
-- [tag] YYYY-MM-DD — one-line fact or decision. Optional second line of detail.
+gcloud config set project "$PROJECT_ID"
+gcloud storage ls "gs://${BUCKET_NAME}/agent-search/"
 ```
 
-**`memory/decisions.md`** — architectural decision log.
-```
-- [project_arch] 2025-XX-XX — Backend lives in Next.js route handlers, not a separate service,
-  for one clean Vercel deploy.
-- [project_rag] 2025-XX-XX — RAG over fine-tuning: news changes daily; retrieval keeps answers
-  current and prevents fabrication.
-```
+## Architecture Overview
 
-**`memory/learnings.md`** — gotchas, fixes, API quirks discovered while building.
-```
-- [project_api] 2025-XX-XX — GNews free tier caps at 100 req/day; orchestrator must fail over
-  to NewsData on 429, then Currents, then GDELT.
-- [bug] 2025-XX-XX — pgvector cosine needs the embedding normalized before insert; unnormalized
-  vectors skewed clustering.
-```
+Scope is a decoupled, cloud-native daily news curator.
 
-**`memory/conventions.md`** — project rules an agent should follow.
-```
-- [project_style] 2025-XX-XX — Components read tokens from globals.css; raw hex is a review
-  failure.
+Pipeline:
+
+```text
+RSS / free news feeds
+  -> Python ingestion script
+  -> Google Cloud Storage bucket
+  -> Discovery Engine / Agent Search data store
+  -> Retrieval layer
+  -> Vertex AI Gemini synthesis
+  -> Cached Tri-Perspective JSON
+  -> Next.js frontend
 ```
 
-When the same lesson would have saved this session time, it belongs in one of these files.
+Important separation of responsibilities:
 
----
+- Cloud Storage stores raw and indexable news files.
+- Discovery Engine / Agent Search indexes the files and enables retrieval.
+- Vertex AI / Gemini generates the final structured story cards after retrieval is working.
+- Next.js displays precomputed content; the frontend should not trigger live AI generation on page load.
 
-## Definition of done for a change
+## Backend Ingestion
 
-- Fits `What I'm building` and breaks no hard constraint.
-- Reuses existing patterns/tokens; no stray hex, no leaked keys.
-- `npm run lint` and `npm run build` pass.
-- Any durable decision/gotcha/convention is written to `memory/`; this file is updated if the
-  stack, structure, commands, or env changed.
+Current backend folder:
+
+```text
+backend/
+  ingest.py
+  requirements.txt
+  venv/
+```
+
+Current dependencies:
+
+```text
+google-cloud-storage
+feedparser
+```
+
+Current ingestion source:
+
+```text
+http://feeds.bbci.co.uk/news/world/rss.xml
+```
+
+Current script behavior:
+
+- Fetches top 10 BBC World RSS articles.
+- Normalizes each article with:
+  - `id`
+  - `title`
+  - `link`
+  - `summary`
+  - `published_date`
+  - `source`
+  - `ingested_at`
+- Uploads raw JSON array for audit/debugging.
+- Uploads NDJSON for Discovery Engine / Agent Search import.
+
+Current bucket prefixes:
+
+```text
+gs://scope-news-raw-data/raw/
+gs://scope-news-raw-data/agent-search/
+```
+
+Known successful object examples:
+
+```text
+gs://scope-news-raw-data/raw/bbc_world_20260627T095745Z.json
+gs://scope-news-raw-data/agent-search/bbc_world_20260627T095745Z.ndjson
+```
+
+Run ingestion locally:
+
+```bash
+backend/venv/bin/python backend/ingest.py
+```
+
+## Discovery Engine / Agent Search Setup
+
+Current stage: create the Discovery Engine / Agent Search data store.
+
+Console entry point:
+
+```text
+https://console.cloud.google.com/gen-app-builder
+```
+
+Expected project selector:
+
+```text
+scope-mvp-prod
+```
+
+Data store settings:
+
+- Product surface: AI Applications / Agent Search
+- App type: Search
+- Source: Cloud Storage
+- Format: structured data / JSON Lines / NDJSON
+- GCS import path: `gs://scope-news-raw-data/agent-search/*.ndjson`
+- Document ID field: `id`
+
+Suggested names:
+
+- Data store display name: `scope-news-raw-datastore`
+- Search app display name: `scope-news-search`
+
+After creation, record these values in this file:
+
+```text
+SCOPE_DATA_STORE_ID=TODO
+SCOPE_SEARCH_ENGINE_ID=TODO
+DISCOVERY_ENGINE_LOCATION=global
+```
+
+If the local or Cloud Shell SDK has the Discovery Engine alpha component installed, generated IDs can be listed with:
+
+```bash
+gcloud alpha discovery-engine data-stores list \
+  --project="scope-mvp-prod" \
+  --location="global"
+
+gcloud alpha discovery-engine engines list \
+  --project="scope-mvp-prod" \
+  --location="global"
+```
+
+## Vertex AI / Gemini Setup
+
+Not started yet.
+
+Planned model layer:
+
+- Model family: Gemini
+- PRD target: Gemini 1.5 Flash
+- Purpose: synthesize retrieved article clusters into Scope's Tri-Perspective Lens JSON.
+
+The Gemini synthesis script must not run until Discovery Engine retrieval has been verified.
+
+## Frontend
+
+There is already a frontend folder:
+
+```text
+scope-news-reader/
+```
+
+The frontend appears to be a Next.js app with Tailwind/shadcn-style structure. It should later consume cached synthesized JSON rather than directly querying RSS, Discovery Engine, or Gemini from the browser.
+
+## Product Constraints From PRD
+
+- Daily brief should focus on exactly five essential stories.
+- Story UI should be swipeable/horizontal.
+- Each story should expose a Tri-Perspective Lens:
+  - Institutional / Neutral Synthesis
+  - Reformist / Divergence
+  - Skeptic / Bias & Validity
+- Chat overlay must answer only from loaded/retrieved articles and cite sources.
+- UI should be minimalist, NYT-clean, serif headlines, generous whitespace, restrained accent color.
+- No full article scraping in v1; rely on feed metadata/snippets.
+- No real auth in v1; demo profile only.
+
+## Handoff Rule
+
+Before any future work:
+
+1. Read `CLAUDE.md`.
+2. Read `TASKS.md`.
+3. Read `LESSONS.md`.
+4. Update these files whenever infrastructure, code, IDs, assumptions, blockers, or next tasks change.
