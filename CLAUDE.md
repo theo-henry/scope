@@ -139,7 +139,7 @@ backend/venv/bin/python backend/ingest.py
 
 ## Discovery Engine / Agent Search Setup
 
-Current stage: create the Discovery Engine / Agent Search data store.
+Current stage: Discovery Engine / Agent Search retrieval verified.
 
 Console entry point:
 
@@ -162,16 +162,18 @@ Data store settings:
 - GCS import path: `gs://scope-news-raw-data/agent-search/*.ndjson`
 - Document ID field: `id`
 
-Suggested names:
+Created resources:
 
 - Data store display name: `scope-news-raw-datastore`
 - Search app display name: `scope-news-search`
+- Imported documents: `10`
+- Verified search query: `BBC news`
 
-After creation, record these values in this file:
+Generated IDs:
 
 ```text
-SCOPE_DATA_STORE_ID=TODO
-SCOPE_SEARCH_ENGINE_ID=TODO
+SCOPE_DATA_STORE_ID=scope-news-raw-datastore
+SCOPE_SEARCH_ENGINE_ID=scope-news-search
 DISCOVERY_ENGINE_LOCATION=global
 ```
 
