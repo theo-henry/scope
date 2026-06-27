@@ -38,7 +38,9 @@ export function mockAnswer(question: string, story: Story | null): MockAnswer {
     return {
       text:
         `Across the ${story.sources.length} outlets, the main disagreements are: ` +
-        story.divergences.map((d) => `(${d.toLowerCase().replace(/\.$/, '')})`).join('; ') +
+        story.lenses.reformist.divergences
+          .map((d) => `(${d.toLowerCase().replace(/\.$/, '')})`)
+          .join('; ') +
         `. The framing splits most clearly between ${story.sources[0].outlet} and ${story.sources[story.sources.length - 1].outlet}.`,
       citations: cite([0, story.sources.length - 1, 1]),
     }
@@ -48,7 +50,7 @@ export function mockAnswer(question: string, story: Story | null): MockAnswer {
     return {
       text:
         'Every covering outlet agrees on these points: ' +
-        story.agreements.map((a) => a.replace(/\.$/, '')).join('; ') +
+        story.lenses.reformist.agreements.map((a) => a.replace(/\.$/, '')).join('; ') +
         '.',
       citations: cite([0, 1, 2]),
     }
@@ -56,7 +58,7 @@ export function mockAnswer(question: string, story: Story | null): MockAnswer {
 
   if (/(valid|trust|reliab|confiden|score)/.test(q)) {
     return {
-      text: `This story scores ${story.validityScore}/100. ${story.validityRationale}`,
+      text: `This story scores ${story.lenses.skeptic.validityScore}/100. ${story.lenses.skeptic.validityRationale}`,
       citations: cite([0, 1]),
     }
   }
@@ -73,7 +75,7 @@ export function mockAnswer(question: string, story: Story | null): MockAnswer {
   }
 
   if (/(summary|what happened|explain|about|overview|tldr)/.test(q)) {
-    return { text: story.synthesis, citations: cite([0, 1, 2]) }
+    return { text: story.lenses.institutional.synthesis, citations: cite([0, 1, 2]) }
   }
 
   // Cite-or-abstain guardrail.

@@ -191,15 +191,22 @@ gcloud alpha discovery-engine engines list \
 
 ## Vertex AI / Gemini Setup
 
-Not started yet.
+Synthesis script written (`backend/synthesize.py`); not yet run against Vertex.
 
-Planned model layer:
+Model layer:
 
 - Model family: Gemini
-- PRD target: Gemini 1.5 Flash
+- PRD target: Gemini 1.5 Flash (`SCOPE_GEMINI_MODEL`, default `gemini-1.5-flash`)
+- SDK: `google-genai` in Vertex mode (`genai.Client(vertexai=True, ...)`)
 - Purpose: synthesize retrieved article clusters into Scope's Tri-Perspective Lens JSON.
 
-The Gemini synthesis script must not run until Discovery Engine retrieval has been verified.
+The Gemini synthesis script must not run until Discovery Engine retrieval has been
+verified (it now is — see `TASKS.md`). Before running `synthesize.py`: confirm Vertex
+AI is enabled, ADC is configured, and the data store IDs above are exported.
+
+The Tri-Perspective Lens JSON schema is the shared backend↔frontend contract:
+`LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` mirrors `Story` / `TriPerspectiveLens`
+in `scope-news-reader/lib/types.ts`. Keep them in sync.
 
 ## Frontend
 
@@ -209,7 +216,14 @@ There is already a frontend folder:
 scope-news-reader/
 ```
 
-The frontend appears to be a Next.js app with Tailwind/shadcn-style structure. It should later consume cached synthesized JSON rather than directly querying RSS, Discovery Engine, or Gemini from the browser.
+A Next.js (App Router) app with Tailwind/shadcn-style structure. It currently runs
+on mock data (`lib/mock-data.ts`, `lib/mock-chat.ts`) and is built to consume cached
+synthesized JSON — never querying RSS, Discovery Engine, or Gemini from the browser.
+
+The coverage view renders the three explicit lenses as numbered sections via
+`components/coverage/lens-sections.tsx`, driven by `Story.lenses` in `lib/types.ts`.
+The Story shape already matches `synthesize.py` output, so wiring the cache in
+should not require UI changes.
 
 ## Product Constraints From PRD
 

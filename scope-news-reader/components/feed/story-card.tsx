@@ -36,7 +36,7 @@ export function StoryCard({ story }: { story: Story }) {
 
         <div className="mt-5 flex items-center justify-between gap-4 border-t border-hairline pt-4">
           <SourceAvatars sources={story.sources} />
-          <ValidityPill score={story.validityScore} />
+          <ValidityPill score={story.lenses.skeptic.validityScore} />
         </div>
       </Link>
     </motion.article>

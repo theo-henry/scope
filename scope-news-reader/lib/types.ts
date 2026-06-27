@@ -1,6 +1,7 @@
-// Domain types for Scope. These mirror the future Supabase row shapes so the
-// mock layer (lib/mock-data.ts) can be swapped for real route handlers
-// (api/refresh, api/chat) + Supabase without touching the UI.
+// Domain types for Scope. These mirror the shape of the cached synthesized JSON
+// produced by the GCP pipeline (Discovery Engine retrieval -> Gemini synthesis,
+// see backend/synthesize.py). The mock layer (lib/mock-data.ts) can be swapped
+// for that cached data without touching the UI.
 
 export type Category =
   | 'Finance'
@@ -42,21 +43,75 @@ export type BiasLean =
   | 'right'
 
 export interface Source {
-  /** maps to articles.source_name */
   outlet: string
-  /** maps to articles.source_domain */
   domain: string
-  /** maps to outlet_bias.bias_lean */
   biasLean: BiasLean
-  /** maps to outlet_bias.reliability_score (0-100) */
+  /** outlet reliability (0-100) */
   reliability: number
-  /** maps to articles.title */
   articleTitle: string
-  /** maps to articles.url */
   url: string
 }
 
 export type ValidityBand = 'High' | 'Medium' | 'Low'
+
+// --- The Tri-Perspective Lens (PRD §2) ---------------------------------------
+// Each story is synthesized into three explicitly named analytical lenses.
+
+/** Lens 1 — official statements, government/regulatory action, established consensus. */
+export interface InstitutionalLens {
+  /** neutral multi-sentence synthesis of the consensus account */
+  synthesis: string
+}
+
+/** Lens 2 — market disruption, public/labor reaction, alternative interpretations. */
+export interface ReformistLens {
+  /** how the divergent/reformist reading frames the event */
+  summary: string
+  /** points all sources agree on */
+  agreements: string[]
+  /** points sources diverge on */
+  divergences: string[]
+}
+
+/** Lens 3 — speculative claims, missing data, bias, and corroboration-based validity. */
+export interface SkepticLens {
+  /** what is unverified, contested, or narratively skewed */
+  summary: string
+  /** corroboration-based validity score (0-100) */
+  validityScore: number
+  /** one-line rationale for the score */
+  validityRationale: string
+  /** optional "what's missing" note when one side isn't covering */
+  missingNote?: string
+}
+
+export interface TriPerspectiveLens {
+  institutional: InstitutionalLens
+  reformist: ReformistLens
+  skeptic: SkepticLens
+}
+
+/** Display metadata for each lens, in render order. */
+export const LENS_META = [
+  {
+    key: 'institutional' as const,
+    n: 1,
+    title: 'Institutional',
+    subtitle: 'Neutral Synthesis',
+  },
+  {
+    key: 'reformist' as const,
+    n: 2,
+    title: 'Reformist',
+    subtitle: 'Divergence',
+  },
+  {
+    key: 'skeptic' as const,
+    n: 3,
+    title: 'Skeptic',
+    subtitle: 'Bias & Validity',
+  },
+] as const
 
 export interface Story {
   id: string
@@ -64,22 +119,12 @@ export interface Story {
   category: Category
   country: Country
   headline: string
-  /** one-line AI summary shown on the feed card */
+  /** one-line AI summary shown on the feed card and coverage dek */
   aiSummary: string
-  /** neutral multi-sentence synthesis shown on the coverage view */
-  synthesis: string
-  /** maps to stories.validity_score */
-  validityScore: number
-  /** one-line rationale for the score */
-  validityRationale: string
-  /** points all sources agree on */
-  agreements: string[]
-  /** points sources diverge on (stories.divergence jsonb) */
-  divergences: string[]
-  /** optional "what's missing" note when one side isn't covering */
-  missingNote?: string
+  /** the three-lens synthesis */
+  lenses: TriPerspectiveLens
   sources: Source[]
-  /** ISO timestamp, maps to articles.published_at */
+  /** ISO timestamp */
   publishedAt: string
 }
 

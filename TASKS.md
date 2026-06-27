@@ -59,27 +59,43 @@ export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
 backend/venv/bin/python backend/search_test.py "world"
 ```
 
-3. Create the Gemini synthesis script:
+3. ~~Create the Gemini synthesis script: `backend/synthesize.py`.~~ DONE.
+   Retrieves a per-topic cluster from Discovery Engine, calls Gemini 1.5 Flash on
+   Vertex AI with a structured `response_schema`, assembles the full Story object
+   (metadata + grounded source list from the retrieved docs), and uploads to
+   `gs://scope-news-raw-data/synthesized/`. Added `google-genai` to
+   `backend/requirements.txt`. NOT YET RUN against Vertex — needs ADC + Vertex AI
+   enabled and `SCOPE_DATA_STORE_ID`/`SCOPE_SEARCH_ENGINE_ID` exported.
 
-```text
-backend/synthesize.py
-```
+4. ~~Define and enforce the Tri-Perspective Lens JSON schema.~~ DONE.
+   The schema is the shared contract between `backend/synthesize.py`
+   (`LENS_RESPONSE_SCHEMA`) and the frontend (`scope-news-reader/lib/types.ts`:
+   `Story` / `TriPerspectiveLens`). Restructured the frontend to three EXPLICIT
+   named lenses per PRD §2 (institutional / reformist / skeptic): updated
+   `lib/types.ts`, all 8 mock stories in `lib/mock-data.ts`, the coverage view
+   (new `components/coverage/lens-sections.tsx`, header, agreement-divergence),
+   the feed card, and `lib/mock-chat.ts`. Frontend `tsc` + `next build` pass.
 
-4. Define and enforce the Tri-Perspective Lens JSON schema.
+5. ~~Save synthesized output to a cache prefix.~~ DONE — `synthesize.py` writes to
+   `gs://scope-news-raw-data/synthesized/stories_<timestamp>.json`.
 
-5. Save synthesized output to a cache prefix, likely:
+6. Run the COMMITTED `synthesize.py` in Cloud Shell (git pull first), with
+   `GEMINI_API_KEY` + the data-store IDs exported. Uses the Gemini Developer API
+   and `gemini-2.5-flash` (the PRD's 1.5 Flash is no longer served on that API).
+   Verify the cached `stories_<ts>.json` validates against the Story schema.
+   NOTE: an earlier ad-hoc Cloud Shell script wrote
+   `gs://scope-news-raw-data/synthesized/20260627T124918Z.json` with a WRONG flat
+   schema (query/summary/articles, no lenses) — ignore or delete it; the committed
+   script writes `stories_<ts>.json`, a distinct prefix.
 
-```text
-gs://scope-news-raw-data/synthesized/
-```
+7. Connect the Next.js frontend to the cached synthesized JSON (add a data-access
+   layer / API route that reads the cache and swap it in for `lib/mock-data.ts`;
+   the Story shape already matches, so the UI should not need changes).
 
-6. Connect the Next.js frontend to cached synthesized JSON.
+8. Build grounded chat behavior using only loaded/retrieved article context
+   (replace `lib/mock-chat.ts` with a real Vertex AI grounded route).
 
-7. Replace mock frontend data with real cached data.
-
-8. Build grounded chat behavior using only loaded/retrieved article context.
-
-17. Add deployment and refresh documentation.
+9. Add deployment and refresh documentation.
 
 ## Deferred Tasks
 

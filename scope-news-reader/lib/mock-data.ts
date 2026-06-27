@@ -51,20 +51,32 @@ export const STORIES: Story[] = [
     headline: 'Federal Reserve holds rates steady, signals two cuts later this year',
     aiSummary:
       'The Fed kept its benchmark rate unchanged but penciled in two 2026 cuts, citing cooling inflation and a softening labor market.',
-    synthesis:
-      'The Federal Reserve left its benchmark interest rate unchanged in the 4.25%-4.50% range, a decision every covering outlet reported identically from the official statement. Policymakers signaled two quarter-point cuts before year-end, conditioned on continued progress toward the 2% inflation target. Reporting converges on the facts of the decision and Chair Powell\u2019s emphasis on "data dependence." Outlets diverge mainly in framing: business desks foreground the dovish projection and the equity rally, while others stress that Powell declined to commit to a timeline and flagged tariff-driven price risks.',
-    validityScore: 92,
-    validityRationale: 'Corroborated by 7 independent outlets including three wire services; all cite the same FOMC statement.',
-    agreements: [
-      'The benchmark rate was held in the 4.25%-4.50% range.',
-      'The median projection points to two cuts in 2026.',
-      'Powell stressed decisions remain "data dependent."',
-    ],
-    divergences: [
-      'Whether the statement should be read as decisively dovish or deliberately noncommittal.',
-      'How much weight to give tariff-driven inflation risk in the outlook.',
-      'The significance of the same-day equity market rally.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'The Federal Reserve left its benchmark interest rate unchanged in the 4.25%-4.50% range, a decision every covering outlet reported identically from the official statement. Policymakers signaled two quarter-point cuts before year-end, conditioned on continued progress toward the 2% inflation target. Reporting converges on the facts of the decision and Chair Powell\u2019s emphasis on "data dependence."',
+      },
+      reformist: {
+        summary:
+          'Business desks foregrounded the dovish projection and the same-day equity rally, framing the two penciled-in cuts as a green light for risk assets ahead of an official easing cycle.',
+        agreements: [
+          'The benchmark rate was held in the 4.25%-4.50% range.',
+          'The median projection points to two cuts in 2026.',
+          'Powell stressed decisions remain "data dependent."',
+        ],
+        divergences: [
+          'Whether the statement should be read as decisively dovish or deliberately noncommittal.',
+          'How much weight to give tariff-driven inflation risk in the outlook.',
+          'The significance of the same-day equity market rally.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'Powell declined to commit to any timeline and explicitly flagged tariff-driven price risks, so the dot-plot projection is a conditional forecast rather than a promise of cuts.',
+        validityScore: 92,
+        validityRationale: 'Corroborated by 7 independent outlets including three wire services; all cite the same FOMC statement.',
+      },
+    },
     sources: [
       src('reuters', 'Fed holds rates, projects two cuts in 2026', 'fed-holds-rates-signals-cuts'),
       src('ap', 'Federal Reserve keeps rates steady as inflation cools', 'fed-holds-rates-signals-cuts'),
@@ -84,20 +96,32 @@ export const STORIES: Story[] = [
     headline: 'Nvidia tops estimates as data-center demand keeps surging',
     aiSummary:
       'Nvidia beat revenue and profit forecasts on record data-center sales, though guidance left analysts split on the pace of AI spending.',
-    synthesis:
-      'Nvidia reported quarterly revenue and earnings above Wall Street consensus, driven by record data-center sales tied to AI infrastructure buildout. All outlets agree on the headline beat and the year-over-year growth figures drawn from the company release. Divergence centers on interpretation of forward guidance: some reporting frames it as confirmation that AI demand remains durable, while others note that the sequential growth rate is decelerating and that customer concentration is a risk. Commentary on valuation and the stock\u2019s after-hours move varies by desk.',
-    validityScore: 84,
-    validityRationale: 'Five outlets corroborate the earnings figures from the official release; interpretation of guidance varies.',
-    agreements: [
-      'Revenue and EPS came in above analyst consensus.',
-      'Data-center segment set a new record.',
-      'The company raised its dividend.',
-    ],
-    divergences: [
-      'Whether decelerating sequential growth signals a plateau in AI spend.',
-      'How concerning customer concentration is for future quarters.',
-      'Whether the current valuation is justified by the guidance.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'Nvidia reported quarterly revenue and earnings above Wall Street consensus, driven by record data-center sales tied to AI infrastructure buildout. All outlets agree on the headline beat and the year-over-year growth figures drawn from the company release, and the company raised its dividend.',
+      },
+      reformist: {
+        summary:
+          'Bullish coverage read the results as confirmation that the AI capex cycle remains durable, treating the data-center record as proof that hyperscaler spending has further to run.',
+        agreements: [
+          'Revenue and EPS came in above analyst consensus.',
+          'Data-center segment set a new record.',
+          'The company raised its dividend.',
+        ],
+        divergences: [
+          'Whether decelerating sequential growth signals a plateau in AI spend.',
+          'How concerning customer concentration is for future quarters.',
+          'Whether the current valuation is justified by the guidance.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'Skeptical desks flagged that sequential growth is decelerating and that heavy customer concentration leaves forward guidance exposed, making the after-hours move as much about valuation as fundamentals.',
+        validityScore: 84,
+        validityRationale: 'Five outlets corroborate the earnings figures from the official release; interpretation of guidance varies.',
+      },
+    },
     sources: [
       src('bloomberg', 'Nvidia beats again on AI data-center boom', 'nvidia-earnings-ai-demand'),
       src('cnbc', 'Nvidia tops estimates, shares swing after hours', 'nvidia-earnings-ai-demand'),
@@ -115,22 +139,34 @@ export const STORIES: Story[] = [
     headline: 'Senate reaches bipartisan budget deal, averting government shutdown',
     aiSummary:
       'A bipartisan Senate agreement funds the government through the fiscal year, but the two parties describe the compromise very differently.',
-    synthesis:
-      'Senate negotiators announced a bipartisan agreement to fund the government and avert a shutdown ahead of the deadline. Outlets across the spectrum agree on the core facts: a deal was reached, it extends funding through the fiscal year, and it passed a procedural vote. The most pronounced divergence is partisan framing of who conceded what \u2014 coverage emphasizes either spending restraint or protected domestic programs depending on the outlet\u2019s lean. There is also disagreement over whether the deal represents durable compromise or merely defers contentious fights.',
-    validityScore: 79,
-    validityRationale: 'Six outlets confirm the agreement; framing of concessions diverges sharply along partisan lines.',
-    agreements: [
-      'A bipartisan funding agreement was reached before the deadline.',
-      'The deal averts an immediate shutdown.',
-      'It cleared an initial procedural vote.',
-    ],
-    divergences: [
-      'Which side made the larger concessions.',
-      'Whether spending levels rise or fall in real terms.',
-      'Whether the deal resolves or merely postpones the next standoff.',
-    ],
-    missingNote:
-      'Right-leaning outlets gave limited coverage to the protected domestic-program provisions emphasized elsewhere.',
+    lenses: {
+      institutional: {
+        synthesis:
+          'Senate negotiators announced a bipartisan agreement to fund the government and avert a shutdown ahead of the deadline. Outlets across the spectrum agree on the core facts: a deal was reached, it extends funding through the fiscal year, and it passed a procedural vote.',
+      },
+      reformist: {
+        summary:
+          'Partisan coverage split sharply on who conceded what \u2014 outlets emphasized either hard-won spending restraint or protected domestic programs depending on their lean, reframing the same vote as a win for their side.',
+        agreements: [
+          'A bipartisan funding agreement was reached before the deadline.',
+          'The deal averts an immediate shutdown.',
+          'It cleared an initial procedural vote.',
+        ],
+        divergences: [
+          'Which side made the larger concessions.',
+          'Whether spending levels rise or fall in real terms.',
+          'Whether the deal resolves or merely postpones the next standoff.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'It is unclear whether the pact is durable compromise or merely defers the contentious fights, and partisan framing of the concessions makes the real spending trajectory hard to verify.',
+        validityScore: 79,
+        validityRationale: 'Six outlets confirm the agreement; framing of concessions diverges sharply along partisan lines.',
+        missingNote:
+          'Right-leaning outlets gave limited coverage to the protected domestic-program provisions emphasized elsewhere.',
+      },
+    },
     sources: [
       src('ap', 'Senate strikes deal to keep government open', 'senate-budget-deal-shutdown-averted'),
       src('reuters', 'Bipartisan budget agreement averts US shutdown', 'senate-budget-deal-shutdown-averted'),
@@ -149,19 +185,31 @@ export const STORIES: Story[] = [
     headline: 'ECB cuts rates a quarter point as eurozone inflation nears target',
     aiSummary:
       'The European Central Bank lowered its key rate by 25 basis points, with Lagarde keeping future moves open as growth stays fragile.',
-    synthesis:
-      'The European Central Bank reduced its key deposit rate by 25 basis points, a move uniformly reported from the official decision. President Lagarde declined to pre-commit to a path, citing fragile growth and sticky services inflation. Coverage agrees on the cut and on Lagarde\u2019s noncommittal tone. Divergence appears in emphasis: some outlets frame the move as the start of a clear easing cycle, while others highlight internal disagreement on the Governing Council and the risk of cutting too quickly.',
-    validityScore: 88,
-    validityRationale: 'Confirmed by four high-reliability outlets directly from the ECB statement and press conference.',
-    agreements: [
-      'The deposit rate was cut by 25 basis points.',
-      'Lagarde avoided committing to a future path.',
-      'Headline inflation is approaching the 2% target.',
-    ],
-    divergences: [
-      'Whether this marks the start of a sustained easing cycle.',
-      'How divided the Governing Council is on the pace of cuts.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'The European Central Bank reduced its key deposit rate by 25 basis points, a move uniformly reported from the official decision. President Lagarde declined to pre-commit to a path, citing fragile growth and sticky services inflation. Coverage agrees on the cut and on Lagarde\u2019s noncommittal tone.',
+      },
+      reformist: {
+        summary:
+          'Some outlets framed the cut as the opening move of a clear easing cycle, reading fragile eurozone growth as pressure that will force the ECB to keep loosening through the year.',
+        agreements: [
+          'The deposit rate was cut by 25 basis points.',
+          'Lagarde avoided committing to a future path.',
+          'Headline inflation is approaching the 2% target.',
+        ],
+        divergences: [
+          'Whether this marks the start of a sustained easing cycle.',
+          'How divided the Governing Council is on the pace of cuts.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'Other reporting highlighted internal disagreement on the Governing Council and the risk of cutting too quickly, casting doubt on whether a smooth easing cycle is as assured as the dovish read suggests.',
+        validityScore: 88,
+        validityRationale: 'Confirmed by four high-reliability outlets directly from the ECB statement and press conference.',
+      },
+    },
     sources: [
       src('ft', 'ECB cuts rates, Lagarde keeps options open', 'ecb-rate-decision-eurozone'),
       src('reuters', 'ECB lowers rates as inflation eases', 'ecb-rate-decision-eurozone'),
@@ -178,20 +226,32 @@ export const STORIES: Story[] = [
     headline: 'EU begins enforcing landmark AI Act rules for general-purpose models',
     aiSummary:
       'New EU obligations for general-purpose AI take effect, requiring transparency and risk disclosures from major model providers.',
-    synthesis:
-      'The European Union began enforcing a key phase of its AI Act, imposing transparency, documentation, and systemic-risk obligations on providers of general-purpose models. Outlets agree on what took effect and on the categories of newly regulated obligations. They diverge on impact: technology coverage stresses compliance burden and possible slowed deployment in Europe, while broader outlets frame the rules as a global benchmark for AI governance. There is disagreement over how aggressively regulators will enforce penalties in the near term.',
-    validityScore: 81,
-    validityRationale: 'Five outlets corroborate the enforcement milestone; projected business impact is interpretive.',
-    agreements: [
-      'A new enforcement phase of the AI Act took effect.',
-      'General-purpose model providers face transparency obligations.',
-      'Non-compliance can trigger significant fines.',
-    ],
-    divergences: [
-      'How heavy the compliance burden is for smaller developers.',
-      'Whether enforcement will be strict or gradual at first.',
-      'Whether the rules set a global standard or fragment the market.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'The European Union began enforcing a key phase of its AI Act, imposing transparency, documentation, and systemic-risk obligations on providers of general-purpose models. Outlets agree on what took effect and on the categories of newly regulated obligations, including that non-compliance can trigger significant fines.',
+      },
+      reformist: {
+        summary:
+          'Technology coverage stressed the compliance burden and the risk of slowed model deployment in Europe, framing enforcement as a brake on the smaller developers least able to absorb the documentation overhead.',
+        agreements: [
+          'A new enforcement phase of the AI Act took effect.',
+          'General-purpose model providers face transparency obligations.',
+          'Non-compliance can trigger significant fines.',
+        ],
+        divergences: [
+          'How heavy the compliance burden is for smaller developers.',
+          'Whether enforcement will be strict or gradual at first.',
+          'Whether the rules set a global standard or fragment the market.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'How aggressively regulators will actually levy penalties in the near term is unverified, and claims that the rules set a global benchmark — rather than fragmenting the market — rest on projection rather than evidence.',
+        validityScore: 81,
+        validityRationale: 'Five outlets corroborate the enforcement milestone; projected business impact is interpretive.',
+      },
+    },
     sources: [
       src('reuters', 'EU starts enforcing AI Act rules for big models', 'eu-ai-act-enforcement-begins'),
       src('verge', 'What the AI Act now requires from model makers', 'eu-ai-act-enforcement-begins'),
@@ -209,19 +269,31 @@ export const STORIES: Story[] = [
     headline: 'Oil jumps as supply worries return to global markets',
     aiSummary:
       'Crude prices climbed on renewed supply concerns, though analysts disagree on whether the move is durable or a short-lived spike.',
-    synthesis:
-      'Crude oil prices rose sharply amid renewed concerns about global supply. Reporting agrees on the magnitude of the daily move and the immediate trigger cited by traders. The principal divergence is on durability: some analysts quoted see a sustained repricing of supply risk, while others characterize the jump as a speculative spike likely to fade as inventories normalize. Coverage also differs on the downstream impact on inflation and consumer fuel costs.',
-    validityScore: 68,
-    validityRationale: 'Four outlets confirm the price move; forward-looking claims rely on differing analyst views.',
-    agreements: [
-      'Benchmark crude prices rose materially on the day.',
-      'Traders cited supply-side concerns as the trigger.',
-    ],
-    divergences: [
-      'Whether the rally reflects a durable repricing or a transient spike.',
-      'The likely pass-through to inflation and pump prices.',
-      'How OPEC+ will respond.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'Crude oil prices rose sharply amid renewed concerns about global supply. Reporting agrees on the magnitude of the daily move and the immediate trigger cited by traders.',
+      },
+      reformist: {
+        summary:
+          'Some analysts quoted read the move as a durable repricing of supply risk, warning of a pass-through to inflation and pump prices if the elevated levels hold.',
+        agreements: [
+          'Benchmark crude prices rose materially on the day.',
+          'Traders cited supply-side concerns as the trigger.',
+        ],
+        divergences: [
+          'Whether the rally reflects a durable repricing or a transient spike.',
+          'The likely pass-through to inflation and pump prices.',
+          'How OPEC+ will respond.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'Others characterized the jump as a speculative spike likely to fade as inventories normalize, and every forward-looking claim about inflation or an OPEC+ response rests on competing analyst views rather than confirmed data.',
+        validityScore: 68,
+        validityRationale: 'Four outlets confirm the price move; forward-looking claims rely on differing analyst views.',
+      },
+    },
     sources: [
       src('reuters', 'Oil surges on renewed supply fears', 'oil-prices-supply-tensions'),
       src('bloomberg', 'Crude spikes as traders weigh supply risk', 'oil-prices-supply-tensions'),
@@ -238,19 +310,31 @@ export const STORIES: Story[] = [
     headline: 'UK inflation cools more than expected, easing pressure on the Bank of England',
     aiSummary:
       'British inflation fell below forecasts, strengthening the case for a Bank of England rate cut, though wage growth remains a concern.',
-    synthesis:
-      'UK consumer price inflation slowed more than economists had forecast, according to official statistics every outlet reported from the same release. The data strengthens market expectations of a near-term Bank of England rate cut. Outlets agree on the headline figure and the market reaction in gilts and sterling. They diverge on whether persistent services inflation and wage growth will keep the central bank cautious, and on how quickly any easing would reach households.',
-    validityScore: 86,
-    validityRationale: 'Confirmed by four outlets from the official ONS release; outlook commentary varies modestly.',
-    agreements: [
-      'Headline inflation came in below consensus forecasts.',
-      'Markets raised the odds of a near-term BoE cut.',
-      'Sterling and gilt yields moved on the data.',
-    ],
-    divergences: [
-      'Whether sticky services inflation will delay cuts.',
-      'How fast relief reaches household budgets.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'UK consumer price inflation slowed more than economists had forecast, according to official statistics every outlet reported from the same ONS release. The data strengthens market expectations of a near-term Bank of England rate cut, and outlets agree on the headline figure and the market reaction in gilts and sterling.',
+      },
+      reformist: {
+        summary:
+          'Coverage aimed at households framed the cooler print as imminent relief, emphasizing how a BoE cut would ease mortgage and borrowing costs after a prolonged squeeze.',
+        agreements: [
+          'Headline inflation came in below consensus forecasts.',
+          'Markets raised the odds of a near-term BoE cut.',
+          'Sterling and gilt yields moved on the data.',
+        ],
+        divergences: [
+          'Whether sticky services inflation will delay cuts.',
+          'How fast relief reaches household budgets.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'More cautious analysis warned that persistent services inflation and wage growth could keep the Bank cautious, so the market-implied cut may arrive later and reach household budgets more slowly than the headline suggests.',
+        validityScore: 86,
+        validityRationale: 'Confirmed by four outlets from the official ONS release; outlook commentary varies modestly.',
+      },
+    },
     sources: [
       src('bbc', 'UK inflation falls faster than expected', 'uk-inflation-cools-boe-watch'),
       src('ft', 'Cooler UK prices lift rate-cut bets', 'uk-inflation-cools-boe-watch'),
@@ -267,19 +351,31 @@ export const STORIES: Story[] = [
     headline: 'Major economies open fresh round of tariff negotiations',
     aiSummary:
       'Leading economies launched new trade talks aimed at de-escalating tariffs, but reports differ on how close any agreement really is.',
-    synthesis:
-      'Several major economies opened a new round of negotiations aimed at easing recently raised tariffs. Outlets agree that talks have begun and on the list of participating governments. The clearest divergence is on prospects: some reporting cites officials describing meaningful progress, while others quote sources warning that core disputes remain unresolved and that a deal is far off. Coverage also differs on which sectors would be affected first by any rollback.',
-    validityScore: 61,
-    validityRationale: 'Four outlets confirm talks began; claims about progress rely on competing anonymous sources.',
-    agreements: [
-      'A new round of tariff negotiations has started.',
-      'Multiple major economies are participating.',
-    ],
-    divergences: [
-      'How much genuine progress has been made.',
-      'Which sectors a rollback would touch first.',
-      'Whether a near-term agreement is realistic.',
-    ],
+    lenses: {
+      institutional: {
+        synthesis:
+          'Several major economies opened a new round of negotiations aimed at easing recently raised tariffs. Outlets agree that talks have begun and on the list of participating governments.',
+      },
+      reformist: {
+        summary:
+          'Some reporting cited officials describing meaningful progress, presenting the round as a genuine de-escalation that could begin rolling back tariffs on the most affected sectors.',
+        agreements: [
+          'A new round of tariff negotiations has started.',
+          'Multiple major economies are participating.',
+        ],
+        divergences: [
+          'How much genuine progress has been made.',
+          'Which sectors a rollback would touch first.',
+          'Whether a near-term agreement is realistic.',
+        ],
+      },
+      skeptic: {
+        summary:
+          'Other coverage quoted sources warning that core disputes remain unresolved and a deal is far off; with progress claims resting on competing anonymous sources, the optimistic framing is hard to verify.',
+        validityScore: 61,
+        validityRationale: 'Four outlets confirm talks began; claims about progress rely on competing anonymous sources.',
+      },
+    },
     sources: [
       src('reuters', 'Economies launch new round of tariff talks', 'global-trade-tariff-talks'),
       src('ap', 'Trade negotiators meet to ease tariffs', 'global-trade-tariff-talks'),

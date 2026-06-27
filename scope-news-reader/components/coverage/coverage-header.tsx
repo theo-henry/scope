@@ -51,10 +51,10 @@ export function CoverageHeader({ story }: { story: Story }) {
 
         <motion.div variants={revealUp} className="mt-7 max-w-2xl">
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#a5a7ad]">
-            AI synthesis
+            Tri-Perspective Lens
           </p>
           <p className="mt-2 text-pretty text-lg leading-relaxed text-[#dfe0e4]">
-            {story.synthesis}
+            {story.aiSummary}
           </p>
         </motion.div>
 
