@@ -196,6 +196,10 @@ with `DocumentServiceClient.import_documents` (data_schema `custom`, `id_field="
 few minutes; the relevance filter on this small store is strict, so synthesis queries
 must be short and on-topic (see `LESSONS.md`).
 
+`backend/refresh.py` automates this operational path: fetch RSS, upload raw +
+NDJSON, run the incremental Discovery Engine import, wait
+`SCOPE_INDEX_SETTLE_SECONDS` seconds, then call `synthesize.py`.
+
 Generated IDs:
 
 ```text
@@ -260,6 +264,12 @@ generation succeeds). The frontend reads `latest.json`.
 The Tri-Perspective Lens JSON schema is the shared backend↔frontend contract:
 `LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` mirrors `Story` / `TriPerspectiveLens`
 in `scope-news-reader/lib/types.ts`. Keep them in sync.
+
+Story retention:
+- `synthesize.py` merges newly generated stories with the existing `latest.json`.
+- Defaults: keep stories published in the last 14 days
+  (`SCOPE_STORY_RETENTION_DAYS`) and cap visible stories at 50 (`SCOPE_MAX_STORIES`).
+- New stories replace older retained stories with the same slug/id.
 
 ## Frontend
 

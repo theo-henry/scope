@@ -127,23 +127,27 @@ The frontend revalidates `latest.json` every hour (ISR), so new synthesis runs a
 
 ## Refreshing data
 
-The pipeline is currently manual. Run these steps in order whenever you want fresh stories:
+Use the refresh script whenever you want fresh stories:
 
 ```bash
-# 1. Ingest new articles
-backend/venv/bin/python backend/ingest.py
-
-# 2. Import into Discovery Engine (do this in the GCP Console or via SDK)
-#    Go to: console.cloud.google.com/gen-app-builder → scope-news-search → Import
-
-# 3. Synthesize
-export GEMINI_API_KEY="..."
+export SCOPE_PROJECT_ID="scope-mvp-prod"
 export SCOPE_DATA_STORE_ID="scope-news-raw-datastore"
 export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
-backend/venv/bin/python backend/synthesize.py
+
+# Use one of these auth paths:
+export SCOPE_GEMINI_SECRET_ID="scope-gemini-api-key"
+# or, for local/manual testing:
+# read -rsp "Gemini API key: " GEMINI_API_KEY && echo && export GEMINI_API_KEY
+
+backend/venv/bin/python backend/refresh.py
 ```
 
-`latest.json` is overwritten automatically. The live site picks it up within one hour.
+`refresh.py` fetches RSS articles, uploads raw + NDJSON files to GCS, triggers the
+Discovery Engine incremental import, waits briefly for indexing, then runs
+synthesis and image generation.
+
+`latest.json` is updated automatically. The live site picks it up within one hour.
+Older stories are retained for 14 days by default, capped at 50 visible stories.
 
 ---
 
@@ -175,6 +179,10 @@ before it reads environment variables. `.env` is gitignored.
 | `SCOPE_GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model used by synthesis |
 | `SCOPE_GEMINI_IMAGE_MODEL` | No | `gemini-3.1-flash-image` | Gemini image model used for generated story artwork |
 | `SCOPE_IMAGE_PREFIX` | No | `story-images` | GCS prefix for generated story images |
+| `SCOPE_STORY_RETENTION_DAYS` | No | `14` | Number of days old stories remain visible in `latest.json` |
+| `SCOPE_MAX_STORIES` | No | `50` | Maximum visible stories retained in `latest.json` |
+| `SCOPE_INDEX_SETTLE_SECONDS` | No | `120` | Refresh delay after Discovery Engine import before synthesis |
+| `SCOPE_IMPORT_TIMEOUT_SECONDS` | No | `900` | Timeout for the Discovery Engine import operation |
 
 *Required unless `SCOPE_GEMINI_SECRET_ID` is configured and the runtime has Secret Manager access.
 

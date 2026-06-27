@@ -30,7 +30,7 @@ import os
 import re
 from hashlib import sha1
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from google import genai
@@ -75,6 +75,8 @@ IMAGE_WIDTH = 2048
 IMAGE_HEIGHT = 1152
 IMAGE_MIME_TYPE = "image/jpeg"
 IMAGE_PREFIX = os.environ.get("SCOPE_IMAGE_PREFIX", "story-images")
+STORY_RETENTION_DAYS = int(os.environ.get("SCOPE_STORY_RETENTION_DAYS", "14"))
+MAX_STORIES = int(os.environ.get("SCOPE_MAX_STORIES", "50"))
 # Auth path for Gemini. If a key is set (Gemini Developer API / AI Studio), use it;
 # otherwise fall back to Vertex AI via ADC. Both go through the google-genai SDK.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
@@ -454,10 +456,65 @@ def build_story(topic, docs, generated):
     }
 
 
+def parse_story_time(story):
+    raw = story.get("publishedAt")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def story_key(story):
+    return story.get("slug") or story.get("id") or story.get("headline")
+
+
+def load_existing_stories(bucket):
+    blob = bucket.blob("synthesized/latest.json")
+    if not blob.exists():
+        return []
+    try:
+        data = json.loads(blob.download_as_text())
+    except Exception as exc:
+        print(f"Could not load existing latest.json for retention: {exc}")
+        return []
+    if not isinstance(data, list):
+        return []
+    return [story for story in data if isinstance(story, dict)]
+
+
+def merge_retained_stories(new_stories, existing_stories):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=STORY_RETENTION_DAYS)
+    merged = {}
+
+    for story in new_stories:
+        key = story_key(story)
+        if key:
+            merged[key] = story
+
+    for story in existing_stories:
+        key = story_key(story)
+        if not key or key in merged:
+            continue
+        published_at = parse_story_time(story)
+        if published_at and published_at >= cutoff:
+            merged[key] = story
+
+    stories = list(merged.values())
+    stories.sort(
+        key=lambda story: parse_story_time(story) or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return stories[:MAX_STORIES]
+
+
 def upload_cache(stories):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    body = json.dumps(stories, indent=2, ensure_ascii=False)
     bucket = storage.Client().bucket(BUCKET_NAME)
+    existing_stories = load_existing_stories(bucket)
+    retained_stories = merge_retained_stories(stories, existing_stories)
+    body = json.dumps(retained_stories, indent=2, ensure_ascii=False)
 
     # Timestamped archive (audit/history) + a stable `latest.json` that the
     # frontend fetches by a fixed public URL. Grant public read on latest.json
@@ -466,6 +523,11 @@ def upload_cache(stories):
     bucket.blob(archive).upload_from_string(body, content_type="application/json")
     bucket.blob("synthesized/latest.json").upload_from_string(
         body, content_type="application/json"
+    )
+    print(
+        f"Retained {len(retained_stories)} visible stories "
+        f"({len(stories)} new, {len(existing_stories)} previous, "
+        f"{STORY_RETENTION_DAYS} day retention, max {MAX_STORIES})."
     )
     return f"gs://{BUCKET_NAME}/{archive}", f"gs://{BUCKET_NAME}/synthesized/latest.json"
 

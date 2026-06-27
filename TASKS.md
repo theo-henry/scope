@@ -156,14 +156,21 @@ backend/venv/bin/python backend/search_test.py "world"
     key location: Secret Manager secret `scope-gemini-api-key` in project
     `scope-mvp-prod`; do not commit or print the secret value.
 
+13. ~~Add one-command refresh pipeline with retention.~~ DONE.
+    Added `backend/refresh.py`: fetch RSS articles, upload raw JSON + Discovery
+    Engine NDJSON, trigger `DocumentServiceClient.import_documents` as an
+    incremental import, wait for indexing, then run synthesis/image generation.
+    `synthesize.py` now merges new stories with existing `latest.json`, retaining
+    stories for 14 days by default and capping visible feed stories at 50.
+
 ## Pending Tasks (required for submission)
 
-13. Run `backend/evaluate.py` and record scores.
+14. Run `backend/evaluate.py` and record scores.
     Prerequisites: GEMINI_API_KEY + SCOPE_DATA_STORE_ID + SCOPE_SEARCH_ENGINE_ID.
     Include the aggregate faithfulness / lens_distinctiveness / completeness scores
     and avg latency in the presentation deck.
 
-14. Build the presentation deck (PDF) — required deliverable.
+15. Build the presentation deck (PDF) — required deliverable.
     Must cover (maps to rubric pillars):
     - Business problem + value proposition with 2-3 quantified metrics
     - Architecture diagram: RSS → ingest → GCS → Discovery Engine → Gemini → frontend
