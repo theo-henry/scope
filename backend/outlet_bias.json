@@ -1,0 +1,22 @@
+{
+  "_comment": "Curated outlet political lean + reliability, keyed by registrable domain. biasLean must be one of: left, lean-left, center, lean-right, right. reliability is 0-100. Matched against domain_of(article link), with an endswith() fallback for subdomains. Ratings are approximate, informed by AllSides / Ad Fontes; adjust as needed.",
+  "outlets": {
+    "bbc.com": { "biasLean": "center", "reliability": 90 },
+    "bbc.co.uk": { "biasLean": "center", "reliability": 90 },
+    "cnbc.com": { "biasLean": "center", "reliability": 80 },
+    "theguardian.com": { "biasLean": "lean-left", "reliability": 82 },
+    "npr.org": { "biasLean": "lean-left", "reliability": 88 },
+    "politico.com": { "biasLean": "lean-left", "reliability": 83 },
+    "thehill.com": { "biasLean": "center", "reliability": 78 },
+    "marketwatch.com": { "biasLean": "center", "reliability": 82 },
+    "theverge.com": { "biasLean": "lean-left", "reliability": 78 },
+    "techcrunch.com": { "biasLean": "center", "reliability": 75 },
+    "aljazeera.com": { "biasLean": "lean-left", "reliability": 75 },
+    "dw.com": { "biasLean": "center", "reliability": 85 },
+    "foxnews.com": { "biasLean": "right", "reliability": 65 },
+    "wsj.com": { "biasLean": "lean-right", "reliability": 88 },
+    "nationalreview.com": { "biasLean": "right", "reliability": 72 },
+    "washingtontimes.com": { "biasLean": "lean-right", "reliability": 68 },
+    "reason.com": { "biasLean": "lean-right", "reliability": 75 }
+  }
+}

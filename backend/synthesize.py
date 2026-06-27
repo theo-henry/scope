@@ -318,6 +318,28 @@ def domain_of(url):
     return host[4:] if host.startswith("www.") else host
 
 
+def load_outlet_bias():
+    """domain -> {biasLean, reliability} from the curated outlet_bias.json."""
+    path = Path(__file__).resolve().parent / "outlet_bias.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data.get("outlets", {})
+
+
+OUTLET_BIAS = load_outlet_bias()
+
+
+def outlet_bias_for(domain):
+    """Exact match, then suffix match for subdomains (e.g. text.npr.org)."""
+    if domain in OUTLET_BIAS:
+        return OUTLET_BIAS[domain]
+    for known, info in OUTLET_BIAS.items():
+        if domain == known or domain.endswith("." + known):
+            return info
+    return {"biasLean": "center", "reliability": 75}
+
+
 def dedupe_docs_by_domain(docs):
     by_domain = {}
     for doc in docs:
@@ -404,16 +426,18 @@ def cluster_rank(cluster):
 
 def cluster_to_sources(docs):
     # The source list is grounded in the retrieved docs, not generated. Bias
-    # lean / reliability come from a curated outlet dataset later (deferred);
-    # default to neutral placeholders so the frontend contract is satisfied.
+    # lean / reliability come from the curated outlet_bias.json dataset, with a
+    # neutral center/75 fallback for outlets not yet in the catalog.
     sources = []
     for doc in docs:
+        domain = domain_of(doc["link"])
+        bias = outlet_bias_for(domain)
         sources.append(
             {
-                "outlet": doc["source"] or domain_of(doc["link"]),
-                "domain": domain_of(doc["link"]),
-                "biasLean": "center",
-                "reliability": 75,
+                "outlet": doc["source"] or domain,
+                "domain": domain,
+                "biasLean": bias["biasLean"],
+                "reliability": bias["reliability"],
                 "articleTitle": doc["title"],
                 "url": doc["link"],
             }

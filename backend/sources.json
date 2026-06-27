@@ -142,5 +142,45 @@
     "country": "Global",
     "tier": 2,
     "enabled": true
+  },
+  {
+    "name": "Fox News Politics",
+    "url": "https://moxie.foxnews.com/google-publisher/politics.xml",
+    "category": "Politics",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Wall Street Journal Markets",
+    "url": "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain",
+    "category": "Markets",
+    "country": "United States",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "National Review",
+    "url": "https://www.nationalreview.com/feed/",
+    "category": "Politics",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "The Washington Times",
+    "url": "https://www.washingtontimes.com/rss/headlines/news/",
+    "category": "Politics",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Reason",
+    "url": "https://reason.com/feed/",
+    "category": "World",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
   }
 ]
