@@ -26,6 +26,16 @@ function isStory(value: unknown): value is Story {
   if (typeof value !== 'object' || value === null) return false
   const s = value as Record<string, unknown>
   const lenses = s.lenses as Record<string, unknown> | undefined
+  const image = s.image as Record<string, unknown> | undefined
+  const hasValidImage =
+    image === undefined ||
+    (typeof image === 'object' &&
+      image !== null &&
+      typeof image.url === 'string' &&
+      typeof image.alt === 'string' &&
+      typeof image.width === 'number' &&
+      typeof image.height === 'number' &&
+      typeof image.mimeType === 'string')
   return (
     typeof s.id === 'string' &&
     typeof s.slug === 'string' &&
@@ -33,6 +43,7 @@ function isStory(value: unknown): value is Story {
     typeof s.category === 'string' &&
     typeof s.country === 'string' &&
     Array.isArray(s.sources) &&
+    hasValidImage &&
     !!lenses &&
     typeof lenses.institutional === 'object' &&
     typeof lenses.reformist === 'object' &&

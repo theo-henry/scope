@@ -159,13 +159,22 @@ backend/venv/bin/python backend/synthesize.py
 
 ### Backend (shell exports before running scripts)
 
+The shared Gemini key is stored in Secret Manager as `scope-gemini-api-key`.
+Prefer `SCOPE_GEMINI_SECRET_ID=scope-gemini-api-key` for synthesis runs; use a
+direct `GEMINI_API_KEY` only for short-lived local testing.
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `GEMINI_API_KEY` | Yes | — | Used by `synthesize.py` |
+| `GEMINI_API_KEY` / `GOOGLE_API_KEY` | Yes* | — | Used by `synthesize.py` for story text and image generation |
+| `SCOPE_GEMINI_SECRET_ID` | No | — | Secret Manager secret name or resource path for the Gemini key; used when no key env var is set |
 | `SCOPE_DATA_STORE_ID` | Yes | — | Discovery Engine data store ID |
 | `SCOPE_SEARCH_ENGINE_ID` | No | — | Discovery Engine search app ID |
 | `SCOPE_PROJECT_ID` | No | `scope-mvp-prod` | GCP project ID |
 | `SCOPE_GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model used by synthesis |
+| `SCOPE_GEMINI_IMAGE_MODEL` | No | `gemini-3.1-flash-image` | Gemini image model used for generated story artwork |
+| `SCOPE_IMAGE_PREFIX` | No | `story-images` | GCS prefix for generated story images |
+
+*Required unless `SCOPE_GEMINI_SECRET_ID` is configured and the runtime has Secret Manager access.
 
 ---
 
@@ -178,3 +187,4 @@ backend/venv/bin/python backend/synthesize.py
 | Discovery Engine data store | `scope-news-raw-datastore` |
 | Discovery Engine search app | `scope-news-search` |
 | Synthesized cache (public) | `gs://scope-news-raw-data/synthesized/latest.json` |
+| Generated story images (public) | `gs://scope-news-raw-data/story-images/` |

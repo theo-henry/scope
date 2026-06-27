@@ -144,14 +144,26 @@ backend/venv/bin/python backend/search_test.py "world"
     - Reordered story detail sections: Institutional → Reformist → Skeptic →
       Validity → What's Missing → Sources (split out of single Lens 3 block).
 
+12. ~~Generate story images during synthesis.~~ DONE.
+    `backend/synthesize.py` now generates one consistent 16:9 realistic editorial
+    image per synthesized story with Gemini image generation, uploads it to
+    `gs://scope-news-raw-data/story-images/`, and stores optional `story.image`
+    metadata in `synthesized/latest.json`. The prompt forbids visible words,
+    logos, UI, and public-figure likenesses by default. The frontend renders the
+    image beside feed blurbs and as the coverage header background when present.
+    Auth supports `GEMINI_API_KEY` / `GOOGLE_API_KEY` now and optional
+    `SCOPE_GEMINI_SECRET_ID` for Secret Manager in scheduled jobs. Current shared
+    key location: Secret Manager secret `scope-gemini-api-key` in project
+    `scope-mvp-prod`; do not commit or print the secret value.
+
 ## Pending Tasks (required for submission)
 
-12. Run `backend/evaluate.py` and record scores.
+13. Run `backend/evaluate.py` and record scores.
     Prerequisites: GEMINI_API_KEY + SCOPE_DATA_STORE_ID + SCOPE_SEARCH_ENGINE_ID.
     Include the aggregate faithfulness / lens_distinctiveness / completeness scores
     and avg latency in the presentation deck.
 
-13. Build the presentation deck (PDF) — required deliverable.
+14. Build the presentation deck (PDF) — required deliverable.
     Must cover (maps to rubric pillars):
     - Business problem + value proposition with 2-3 quantified metrics
     - Architecture diagram: RSS → ingest → GCS → Discovery Engine → Gemini → frontend

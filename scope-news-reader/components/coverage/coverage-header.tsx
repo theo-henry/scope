@@ -13,10 +13,19 @@ export function CoverageHeader({ story }: { story: Story }) {
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-graphite grain">
-      {/* Silver aurora */}
-      <div className="aurora" />
+      {story.image ? (
+        <img
+          src={story.image.url}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="aurora" />
+      )}
       {/* Legibility scrim */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b0c]/30 via-[#0b0b0c]/40 to-[#0b0b0c]/70" />
+      <div className="absolute inset-0 bg-[#0b0b0c]/35" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b0c]/25 via-[#0b0b0c]/50 to-[#0b0b0c]/80" />
 
       <motion.div
         variants={stagger}

@@ -12,7 +12,7 @@ export function SourceList({ sources }: { sources: Source[] }) {
       <ul className="mt-4 overflow-hidden rounded-lg border border-hairline bg-surface">
         {sources.map((s, i) => (
           <li
-            key={s.url}
+            key={`${i}-${s.url || s.domain}`}
             className="flex flex-col gap-3 p-5 transition-colors hover:bg-hairline-2/60 sm:flex-row sm:items-center sm:justify-between"
             style={{ borderTop: i === 0 ? 'none' : '1px solid var(--hairline)' }}
           >

@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { RotateCw } from 'lucide-react'
+import { motion } from 'framer-motion'
 import type { Story } from '@/lib/types'
 import { useFilter } from '@/components/filter-provider'
-import { RevealGroup, RevealItem } from '@/components/reveal'
+import { revealUp, stagger } from '@/lib/motion'
 import { StoryCard } from './story-card'
 
 export function FeedList({ stories }: { stories: Story[] }) {
@@ -54,13 +55,19 @@ export function FeedList({ stories }: { stories: Story[] }) {
           No stories in this category yet.
         </p>
       ) : (
-        <RevealGroup as="ul" className="flex flex-col gap-4">
+        <motion.ul
+          key={active}
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-4"
+        >
           {filtered.map((story) => (
-            <RevealItem as="li" key={story.id}>
+            <motion.li variants={revealUp} key={story.slug}>
               <StoryCard story={story} />
-            </RevealItem>
+            </motion.li>
           ))}
-        </RevealGroup>
+        </motion.ul>
       )}
     </div>
   )

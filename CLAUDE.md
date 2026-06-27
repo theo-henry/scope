@@ -13,6 +13,10 @@ This file is the central handoff document for Scope's cloud architecture, infras
 ## Access And Credential Notes
 
 - No private credentials, access tokens, service account keys, or OAuth refresh tokens should be committed to the repository.
+- The Gemini Developer API key is stored in Secret Manager as
+  `scope-gemini-api-key` in project `scope-mvp-prod`. Do not print or commit the
+  value. Backend synthesis should use `SCOPE_GEMINI_SECRET_ID=scope-gemini-api-key`
+  unless a short-lived local `GEMINI_API_KEY` override is intentionally exported.
 - Collaborators must access Google Cloud through their own Google account.
 - The project owner/admin must grant collaborators IAM access to `scope-mvp-prod` in Google Cloud Console.
 - Minimum likely roles for active setup work:
@@ -224,10 +228,18 @@ Model layer:
 - SDK: `google-genai`. Two auth paths in `build_genai_client()`:
   - Gemini Developer API key (`GEMINI_API_KEY` / `GOOGLE_API_KEY`) — the path that
     works in this project today.
+  - Secret Manager (`SCOPE_GEMINI_SECRET_ID`) — optional production path for the
+    same API key when running scheduled jobs.
   - Vertex AI via ADC (`genai.Client(vertexai=True, ...)`) — currently returns 404
     for Gemini publisher models on `scope-mvp-prod` (no Vertex Gemini access granted),
     so prefer the API-key path until that changes. See `LESSONS.md`.
-- Purpose: synthesize retrieved article clusters into Scope's Tri-Perspective Lens JSON.
+- Purpose: synthesize retrieved article clusters into Scope's Tri-Perspective Lens
+  JSON and generate one consistent 16:9 editorial image per story.
+- Image generation defaults:
+  - Model: `gemini-3.1-flash-image` (`SCOPE_GEMINI_IMAGE_MODEL`)
+  - Output: 2K JPEG, 16:9, stored under `gs://scope-news-raw-data/story-images/`
+  - Prompt style: realistic, simple editorial image, no visible words/logos/UI,
+    avoid recognizable public figures, leave headline-safe negative space.
 
 Run (Gemini Developer API key path, as used in Cloud Shell):
 
@@ -240,7 +252,8 @@ backend/venv/bin/python backend/synthesize.py
 
 Output: a timestamped archive `synthesized/stories_<timestamp>.json` AND a stable
 `synthesized/latest.json` (both arrays of Story objects, each with
-`lenses.institutional/reformist/skeptic`). The frontend reads `latest.json`.
+`lenses.institutional/reformist/skeptic`, plus optional `image` metadata when
+generation succeeds). The frontend reads `latest.json`.
 
 The Tri-Perspective Lens JSON schema is the shared backend↔frontend contract:
 `LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` mirrors `Story` / `TriPerspectiveLens`
@@ -266,6 +279,9 @@ Data source config:
 - Override with `SCOPE_STORIES_URL` (e.g. in Vercel env).
 - `latest.json` must be granted public read (`allUsers` -> `storage.objectViewer`)
   for the live data to load; otherwise the app serves the sample fallback.
+- Story images are optional in the schema. When present, feed cards render them
+  beside the blurb and coverage headers use them as the background image with the
+  dark scrim overlay. Old caches without images remain valid.
 
 The coverage view renders the three explicit lenses as numbered sections via
 `components/coverage/lens-sections.tsx`, driven by `Story.lenses` in `lib/types.ts`.

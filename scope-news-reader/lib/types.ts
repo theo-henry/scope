@@ -91,6 +91,17 @@ export interface TriPerspectiveLens {
   skeptic: SkepticLens
 }
 
+export interface StoryImage {
+  url: string
+  gcsUri?: string
+  alt: string
+  prompt?: string
+  width: number
+  height: number
+  mimeType: string
+  generatedAt?: string
+}
+
 /** Display metadata for each lens, in render order. */
 export const LENS_META = [
   {
@@ -124,6 +135,8 @@ export interface Story {
   /** the three-lens synthesis */
   lenses: TriPerspectiveLens
   sources: Source[]
+  /** generated editorial image used by feed cards and story headers */
+  image?: StoryImage
   /** ISO timestamp */
   publishedAt: string
 }

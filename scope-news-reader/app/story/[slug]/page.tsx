@@ -24,7 +24,24 @@ export async function generateMetadata({
   const { slug } = await params
   const story = await getStoryBySlug(slug)
   if (!story) return { title: 'Story not found — Scope' }
-  return { title: `${story.headline} — Scope`, description: story.aiSummary }
+  return {
+    title: `${story.headline} — Scope`,
+    description: story.aiSummary,
+    openGraph: story.image
+      ? {
+          title: `${story.headline} — Scope`,
+          description: story.aiSummary,
+          images: [
+            {
+              url: story.image.url,
+              width: story.image.width,
+              height: story.image.height,
+              alt: story.image.alt,
+            },
+          ],
+        }
+      : undefined,
+  }
 }
 
 export default async function StoryPage({

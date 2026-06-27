@@ -1,4 +1,5 @@
 google-cloud-storage
 google-cloud-discoveryengine
+google-cloud-secret-manager
 google-genai
 feedparser

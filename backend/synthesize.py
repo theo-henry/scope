@@ -28,6 +28,7 @@ Run (Gemini Developer API key path, as used in Cloud Shell):
 import json
 import os
 import re
+from hashlib import sha1
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -49,9 +50,16 @@ BUCKET_NAME = os.environ.get("SCOPE_BUCKET_NAME", "scope-news-raw-data")
 # Developer API; 2.5 Flash is confirmed working with the project key. Override
 # with SCOPE_GEMINI_MODEL if needed.
 MODEL = os.environ.get("SCOPE_GEMINI_MODEL", "gemini-2.5-flash")
+IMAGE_MODEL = os.environ.get("SCOPE_GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
+IMAGE_ASPECT_RATIO = "16:9"
+IMAGE_WIDTH = 2048
+IMAGE_HEIGHT = 1152
+IMAGE_MIME_TYPE = "image/jpeg"
+IMAGE_PREFIX = os.environ.get("SCOPE_IMAGE_PREFIX", "story-images")
 # Auth path for Gemini. If a key is set (Gemini Developer API / AI Studio), use it;
 # otherwise fall back to Vertex AI via ADC. Both go through the google-genai SDK.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+GEMINI_SECRET_ID = os.environ.get("SCOPE_GEMINI_SECRET_ID", "")
 
 CLUSTER_SIZE = 8  # PRD: 5-8 outlets per story.
 
@@ -124,11 +132,33 @@ LENS_RESPONSE_SCHEMA = {
 }
 
 
+def read_secret_value(secret_id):
+    from google.cloud import secretmanager
+
+    if "/" in secret_id:
+        name = secret_id
+    else:
+        name = f"projects/{PROJECT_ID}/secrets/{secret_id}/versions/latest"
+    response = secretmanager.SecretManagerServiceClient().access_secret_version(
+        request={"name": name}
+    )
+    return response.payload.data.decode("utf-8").strip()
+
+
+def get_gemini_api_key():
+    if GEMINI_API_KEY:
+        return GEMINI_API_KEY
+    if GEMINI_SECRET_ID:
+        return read_secret_value(GEMINI_SECRET_ID)
+    return ""
+
+
 def build_genai_client():
     # Gemini Developer API key (what was used in Cloud Shell) takes precedence;
     # otherwise authenticate to Vertex AI through ADC.
-    if GEMINI_API_KEY:
-        return genai.Client(api_key=GEMINI_API_KEY)
+    api_key = get_gemini_api_key()
+    if api_key:
+        return genai.Client(api_key=api_key)
     return genai.Client(vertexai=True, project=PROJECT_ID, location=VERTEX_LOCATION)
 
 
@@ -227,6 +257,169 @@ def synthesize_lenses(genai_client, docs):
     return json.loads(response.text)
 
 
+def build_image_prompt(story, docs):
+    source_titles = "; ".join(doc["title"] for doc in docs[:5] if doc.get("title"))
+    return (
+        "Create one realistic editorial news image for a modern news website.\n"
+        "Use a consistent Scope visual style across all stories: simple realistic "
+        "composition, restrained color, natural cinematic light, documentary "
+        "photography feel, shallow but not distracting depth of field, clean negative "
+        "space suitable for a headline overlay, no collage, no illustration, no "
+        "cartoon style.\n\n"
+        "Strict requirements: no visible words, no readable text, no letters, no "
+        "logos, no watermarks, no UI, no charts with labels, no newspaper front "
+        "pages, no fabricated documents, no sensational disaster imagery. Do not "
+        "recreate a real news photo. Avoid recognizable public-figure likenesses "
+        "unless absolutely necessary; prefer symbolic real-world scenes, objects, "
+        "institutions, environments, markets, technology, or civic settings.\n\n"
+        f"Story category: {story['category']}\n"
+        f"Story country: {story['country']}\n"
+        f"Headline: {story['headline']}\n"
+        f"Summary: {story['aiSummary']}\n"
+        f"Source article titles: {source_titles}\n\n"
+        "Decide the best simple visual metaphor for the story's general theme and "
+        "generate a realistic 16:9 image. Leave darker or calmer space toward the "
+        "left/center so white headline text can remain readable when used as a "
+        "header background."
+    )
+
+
+def public_gcs_url(blob_name):
+    return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_name}"
+
+
+def extension_for_mime_type(mime_type):
+    if mime_type == "image/png":
+        return "png"
+    if mime_type == "image/webp":
+        return "webp"
+    return "jpg"
+
+
+def image_blob_name(story, mime_type, prompt):
+    prompt_hash = sha1(prompt.encode("utf-8")).hexdigest()[:12]
+    ext = extension_for_mime_type(mime_type)
+    return f"{IMAGE_PREFIX}/{story['id']}/{prompt_hash}.{ext}"
+
+
+def upload_story_image(storage_client, blob_name, image_bytes, mime_type):
+    blob = storage_client.bucket(BUCKET_NAME).blob(blob_name)
+    blob.cache_control = "public, max-age=31536000, immutable"
+    blob.upload_from_string(image_bytes, content_type=mime_type)
+    return f"gs://{BUCKET_NAME}/{blob_name}", public_gcs_url(blob_name)
+
+
+def story_image_metadata(story, prompt, mime_type, gcs_uri, url):
+    return {
+        "url": url,
+        "gcsUri": gcs_uri,
+        "alt": f"Generated editorial image for: {story['headline']}",
+        "prompt": prompt,
+        "width": IMAGE_WIDTH,
+        "height": IMAGE_HEIGHT,
+        "mimeType": mime_type,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def generated_image_from_bytes(storage_client, story, prompt, image_bytes, mime_type):
+    blob_name = image_blob_name(story, mime_type, prompt)
+    gcs_uri, url = upload_story_image(
+        storage_client=storage_client,
+        blob_name=blob_name,
+        image_bytes=image_bytes,
+        mime_type=mime_type,
+    )
+    return story_image_metadata(story, prompt, mime_type, gcs_uri, url)
+
+
+def generate_native_gemini_image(genai_client, storage_client, story, prompt):
+    response = genai_client.models.generate_content(
+        model=IMAGE_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            image_config=types.ImageConfig(
+                aspect_ratio=IMAGE_ASPECT_RATIO,
+                image_size="2K",
+                person_generation="ALLOW_NONE",
+            ),
+        ),
+    )
+    candidates = response.candidates or []
+    for candidate in candidates:
+        parts = candidate.content.parts if candidate.content else []
+        for part in parts or []:
+            if part.inline_data and part.inline_data.data:
+                mime_type = part.inline_data.mime_type or IMAGE_MIME_TYPE
+                return generated_image_from_bytes(
+                    storage_client=storage_client,
+                    story=story,
+                    prompt=prompt,
+                    image_bytes=part.inline_data.data,
+                    mime_type=mime_type,
+                )
+    raise RuntimeError("Gemini image model returned no inline image data")
+
+
+def generate_imagen_style_image(genai_client, storage_client, story, prompt):
+    response = genai_client.models.generate_images(
+        model=IMAGE_MODEL,
+        prompt=prompt,
+        config=types.GenerateImagesConfig(
+            number_of_images=1,
+            aspect_ratio=IMAGE_ASPECT_RATIO,
+            image_size="2K",
+            output_mime_type=IMAGE_MIME_TYPE,
+            output_compression_quality=88,
+            person_generation=types.PersonGeneration.DONT_ALLOW,
+            include_rai_reason=True,
+            enhance_prompt=True,
+        ),
+    )
+    generated_images = response.generated_images or []
+    if not generated_images:
+        raise RuntimeError("image model returned no images")
+
+    generated = generated_images[0]
+    if not generated.image:
+        reason = generated.rai_filtered_reason or "image missing from response"
+        raise RuntimeError(reason)
+
+    image = generated.image
+    if image.gcs_uri:
+        gcs_uri = image.gcs_uri
+        blob_name = gcs_uri.replace(f"gs://{BUCKET_NAME}/", "")
+        mime_type = image.mime_type or IMAGE_MIME_TYPE
+        return story_image_metadata(
+            story=story,
+            prompt=prompt,
+            mime_type=mime_type,
+            gcs_uri=gcs_uri,
+            url=public_gcs_url(blob_name),
+        )
+
+    if not image.image_bytes:
+        reason = generated.rai_filtered_reason or "image response contained no bytes"
+        raise RuntimeError(reason)
+
+    mime_type = image.mime_type or IMAGE_MIME_TYPE
+    return generated_image_from_bytes(
+        storage_client=storage_client,
+        story=story,
+        prompt=prompt,
+        image_bytes=image.image_bytes,
+        mime_type=mime_type,
+    )
+
+
+def generate_story_image(genai_client, storage_client, story, docs):
+    prompt = build_image_prompt(story, docs)
+    if IMAGE_MODEL.startswith("gemini-"):
+        return generate_native_gemini_image(genai_client, storage_client, story, prompt)
+    return generate_imagen_style_image(genai_client, storage_client, story, prompt)
+
+
 def build_story(topic, docs, generated):
     sources = cluster_to_sources(docs)
     headline = generated["headline"]
@@ -268,6 +461,7 @@ def main():
 
     search_client = build_search_client()
     genai_client = build_genai_client()
+    storage_client = storage.Client()
 
     stories = []
     for topic in TOPICS:
@@ -277,6 +471,16 @@ def main():
             continue
         generated = synthesize_lenses(genai_client, docs)
         story = build_story(topic, docs, generated)
+        try:
+            story["image"] = generate_story_image(
+                genai_client=genai_client,
+                storage_client=storage_client,
+                story=story,
+                docs=docs,
+            )
+            print(f"Generated image: {story['image']['gcsUri']}")
+        except Exception as exc:
+            print(f"Image generation failed for '{story['headline']}': {exc}")
         stories.append(story)
         print(f"Synthesized: {story['headline']} ({len(docs)} sources)")
 
