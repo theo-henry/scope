@@ -31,18 +31,22 @@ This file tracks completed work and the exact next steps. Keep it updated as the
   - `TASKS.md`
   - `LESSONS.md`
 
-## Current Position
+## Current Position (as of 2026-06-27, end of session)
 
-The backend pipeline is complete end-to-end and verified:
-multi-feed ingest -> GCS -> Discovery Engine import (123 docs) -> retrieval ->
-Gemini lens synthesis -> cached JSON. `synthesize.py` produced 5 lens stories to
-`gs://scope-news-raw-data/synthesized/stories_20260627T135452Z.json` using
-`gemini-2.5-flash` via the Gemini Developer API key.
+Full pipeline live end-to-end:
+  ingest.py → GCS → Discovery Engine (123 docs) → synthesize.py → latest.json (public)
+  → Next.js frontend (SSG, hourly ISR) → /api/chat (grounded, Gemini REST)
 
-The frontend (`scope-news-reader`) is restructured to the three explicit lenses but
-STILL READS MOCK DATA. The next discrete unit of work is wiring the frontend to the
-cached synthesized JSON (Task 7) — a clean, self-contained frontend task and a good
-handoff boundary.
+Frontend is live at localhost:3000 reading real GCS data (5 stories, 3 lenses each).
+GCS bucket public access is open (allUsers objectViewer on scope-news-raw-data).
+evaluate.py is committed and ready to run; has not been executed against live data yet.
+
+**Pending for submission (guidelines.pdf):**
+  A. Presentation deck (PDF) — required deliverable, not built yet
+  B. Architecture justification — goes in the deck (RAG vs fine-tuning, why Gemini,
+     why Discovery Engine, prompt engineering, guardrails)
+  C. Quantified value proposition — 2-3 business metrics for the pitch (ROI, time saved)
+  D. Run evaluate.py and include scores in the deck as evaluation evidence
 
 ## Next Tasks
 
@@ -128,6 +132,35 @@ backend/venv/bin/python backend/search_test.py "world"
     `gs://scope-news-raw-data/evaluations/eval_<timestamp>.json` and prints a
     formatted report to stdout. Same env vars as `synthesize.py`.
     Run: `backend/venv/bin/python backend/evaluate.py`
+    NOTE: has not been run against live data yet — do this before the presentation
+    and include aggregate scores in the deck.
+
+11. ~~UI fixes (this session).~~ DONE.
+    - Fixed duplicate React key bug in `source-avatars.tsx` (domain not unique
+      when multiple articles from same outlet; now uses index+domain).
+    - Added outlet favicon logos: `components/outlet-logo.tsx` — loads from
+      Google s2 favicon service, falls back to letter avatar on error. Used in
+      `source-avatars.tsx` (feed cards) and `coverage/source-list.tsx` (detail page).
+    - Reordered story detail sections: Institutional → Reformist → Skeptic →
+      Validity → What's Missing → Sources (split out of single Lens 3 block).
+
+## Pending Tasks (required for submission)
+
+12. Run `backend/evaluate.py` and record scores.
+    Prerequisites: GEMINI_API_KEY + SCOPE_DATA_STORE_ID + SCOPE_SEARCH_ENGINE_ID.
+    Include the aggregate faithfulness / lens_distinctiveness / completeness scores
+    and avg latency in the presentation deck.
+
+13. Build the presentation deck (PDF) — required deliverable.
+    Must cover (maps to rubric pillars):
+    - Business problem + value proposition with 2-3 quantified metrics
+    - Architecture diagram: RSS → ingest → GCS → Discovery Engine → Gemini → frontend
+    - Architecture justification: RAG vs fine-tuning; why Gemini 2.5 Flash;
+      why Discovery Engine; prompt engineering design; guardrails (cite-or-abstain,
+      isStory schema guard, response_schema enforcement)
+    - Evaluation results from Task 12 (LLM-as-a-judge scores + latency)
+    - Live demo flow (15-min slot: pitch + demo + Q&A)
+    Guidelines require: PDF format, 15-minute time limit, all members speak.
 
 ## Deferred Tasks
 
