@@ -120,6 +120,15 @@ backend/venv/bin/python backend/search_test.py "world"
    frontend), Vercel deployment steps, manual data refresh workflow, and a full
    env-var reference table for both frontend and backend.
 
+10. ~~Add LLM-as-a-judge evaluation metrics.~~ DONE.
+    `backend/evaluate.py` loads `synthesized/latest.json`, re-retrieves source
+    clusters from Discovery Engine per story, and scores each synthesis with Gemini
+    on three RAGAS-inspired metrics: faithfulness, lens_distinctiveness, completeness.
+    Records per-story judge latency. Saves JSON report to
+    `gs://scope-news-raw-data/evaluations/eval_<timestamp>.json` and prints a
+    formatted report to stdout. Same env vars as `synthesize.py`.
+    Run: `backend/venv/bin/python backend/evaluate.py`
+
 ## Deferred Tasks
 
 - Add fallback source chain beyond RSS: GNews, NewsData, GDELT (multi-feed RSS
