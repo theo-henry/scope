@@ -5,11 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X, ArrowUp, MessageSquareText } from 'lucide-react'
 import type { Story } from '@/lib/types'
 import { SPRING } from '@/lib/motion'
-import {
-  mockAnswer,
-  SUGGESTED_QUESTIONS,
-  type Citation,
-} from '@/lib/mock-chat'
+import { SUGGESTED_QUESTIONS, type Citation } from '@/lib/mock-chat'
 
 interface Message {
   id: string
@@ -62,20 +58,38 @@ export function ChatbotPanel({
     setInput('')
     setStreaming(true)
 
-    // Simulated streaming latency; real version streams via the AI SDK.
-    setTimeout(() => {
-      const ans = mockAnswer(q, story)
-      setMessages((m) => [
-        ...m,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          text: ans.text,
-          citations: ans.citations,
-        },
-      ])
-      setStreaming(false)
-    }, 850)
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, story }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`)
+        return r.json() as Promise<{ text: string; citations: Citation[] }>
+      })
+      .then((ans) => {
+        setMessages((m) => [
+          ...m,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            text: ans.text,
+            citations: ans.citations ?? [],
+          },
+        ])
+      })
+      .catch(() => {
+        setMessages((m) => [
+          ...m,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            text: "Couldn't reach the answer service — please try again.",
+            citations: [],
+          },
+        ])
+      })
+      .finally(() => setStreaming(false))
   }
 
   return (

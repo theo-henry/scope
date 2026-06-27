@@ -106,10 +106,19 @@ backend/venv/bin/python backend/search_test.py "world"
    Known gap: `synthesize.py` emits placeholder `biasLean: "center"` /
    `reliability: 75` for every source, so the bias spectrum/badges look uniform.
 
-8. Build grounded chat behavior using only loaded/retrieved article context
-   (replace `lib/mock-chat.ts` with a real grounded route).
+8. ~~Build grounded chat behavior using only loaded/retrieved article context.~~ DONE.
+   `app/api/chat/route.ts` — POST `{ question, story }` → builds a structured context
+   block from story lenses + sources → calls Gemini REST API (no SDK, no new packages)
+   with `response_schema` enforcing `{ answer, citations[] }` → returns `{ text, citations }`.
+   `chatbot-panel.tsx` now calls `/api/chat` instead of `mockAnswer`. `mock-chat.ts`
+   retains only `Citation` type and `SUGGESTED_QUESTIONS`.
+   REMAINING (manual): create `scope-news-reader/.env.local` with `GEMINI_API_KEY=<key>`
+   and run `pnpm dev` to smoke-test the chat panel on a live story.
 
-9. Add deployment and refresh documentation.
+9. ~~Add deployment and refresh documentation.~~ DONE.
+   `README.md` now covers: pipeline overview, prerequisites, local dev (backend +
+   frontend), Vercel deployment steps, manual data refresh workflow, and a full
+   env-var reference table for both frontend and backend.
 
 ## Deferred Tasks
 
