@@ -33,13 +33,16 @@ This file tracks completed work and the exact next steps. Keep it updated as the
 
 ## Current Position
 
-Discovery Engine / Agent Search retrieval is verified from:
+The backend pipeline is complete end-to-end and verified:
+multi-feed ingest -> GCS -> Discovery Engine import (123 docs) -> retrieval ->
+Gemini lens synthesis -> cached JSON. `synthesize.py` produced 5 lens stories to
+`gs://scope-news-raw-data/synthesized/stories_20260627T135452Z.json` using
+`gemini-2.5-flash` via the Gemini Developer API key.
 
-```text
-gs://scope-news-raw-data/agent-search/*.ndjson
-```
-
-Next work can begin on Gemini synthesis, using Discovery Engine retrieval before any Gemini generation.
+The frontend (`scope-news-reader`) is restructured to the three explicit lenses but
+STILL READS MOCK DATA. The next discrete unit of work is wiring the frontend to the
+cached synthesized JSON (Task 7) — a clean, self-contained frontend task and a good
+handoff boundary.
 
 ## Next Tasks
 
@@ -59,13 +62,13 @@ export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
 backend/venv/bin/python backend/search_test.py "world"
 ```
 
-3. ~~Create the Gemini synthesis script: `backend/synthesize.py`.~~ DONE.
-   Retrieves a per-topic cluster from Discovery Engine, calls Gemini 1.5 Flash on
-   Vertex AI with a structured `response_schema`, assembles the full Story object
-   (metadata + grounded source list from the retrieved docs), and uploads to
-   `gs://scope-news-raw-data/synthesized/`. Added `google-genai` to
-   `backend/requirements.txt`. NOT YET RUN against Vertex — needs ADC + Vertex AI
-   enabled and `SCOPE_DATA_STORE_ID`/`SCOPE_SEARCH_ENGINE_ID` exported.
+3. ~~Create the Gemini synthesis script: `backend/synthesize.py`.~~ DONE & RUN.
+   Retrieves a per-topic cluster from Discovery Engine, calls Gemini
+   (`gemini-2.5-flash`) with a structured `response_schema`, assembles the full
+   Story object (metadata + grounded source list from the retrieved docs), and
+   uploads to `gs://scope-news-raw-data/synthesized/`. Added `google-genai`.
+   Verified: produced 5 lens stories via the Gemini Developer API key path
+   (Vertex Gemini access is not granted on `scope-mvp-prod` yet — see `LESSONS.md`).
 
 4. ~~Define and enforce the Tri-Perspective Lens JSON schema.~~ DONE.
    The schema is the shared contract between `backend/synthesize.py`
@@ -79,30 +82,35 @@ backend/venv/bin/python backend/search_test.py "world"
 5. ~~Save synthesized output to a cache prefix.~~ DONE — `synthesize.py` writes to
    `gs://scope-news-raw-data/synthesized/stories_<timestamp>.json`.
 
-6. Run the COMMITTED `synthesize.py` in Cloud Shell (git pull first), with
-   `GEMINI_API_KEY` + the data-store IDs exported. Uses the Gemini Developer API
-   and `gemini-2.5-flash` (the PRD's 1.5 Flash is no longer served on that API).
-   Verify the cached `stories_<ts>.json` validates against the Story schema.
-   NOTE: an earlier ad-hoc Cloud Shell script wrote
+6. ~~Run the committed `synthesize.py` in Cloud Shell.~~ DONE — see Task 3.
+   Cleanup left: an earlier ad-hoc script wrote
    `gs://scope-news-raw-data/synthesized/20260627T124918Z.json` with a WRONG flat
-   schema (query/summary/articles, no lenses) — ignore or delete it; the committed
-   script writes `stories_<ts>.json`, a distinct prefix.
+   schema (query/summary/articles, no lenses). Delete it, or have the frontend
+   loader match `stories_*.json` only.
 
-7. Connect the Next.js frontend to the cached synthesized JSON (add a data-access
-   layer / API route that reads the cache and swap it in for `lib/mock-data.ts`;
-   the Story shape already matches, so the UI should not need changes).
+7. **NEXT** — Connect the Next.js frontend to the cached synthesized JSON. Add a
+   data-access layer / API route that reads the latest `synthesized/stories_*.json`
+   from GCS and swap it in for `lib/mock-data.ts`. The Story shape already matches,
+   so the UI should not need changes. Start by validating one `stories_*.json`
+   against `Story` / `TriPerspectiveLens`. Known gap: `synthesize.py` emits
+   placeholder `biasLean: "center"` / `reliability: 75` for every source (curated
+   outlet-bias dataset is deferred), so the bias spectrum/badges will look uniform.
 
 8. Build grounded chat behavior using only loaded/retrieved article context
-   (replace `lib/mock-chat.ts` with a real Vertex AI grounded route).
+   (replace `lib/mock-chat.ts` with a real grounded route).
 
 9. Add deployment and refresh documentation.
 
 ## Deferred Tasks
 
-- Add more news sources beyond BBC.
-- Add fallback source chain: GNews, NewsData, Guardian, GDELT.
+- Add fallback source chain beyond RSS: GNews, NewsData, GDELT (multi-feed RSS
+  across BBC/CNBC/Guardian is already in `ingest.py`).
+- Curated outlet-bias dataset (real `biasLean` / `reliability`) to replace the
+  placeholder source values in `synthesize.py`.
+- Real cross-source same-story clustering (currently one TOPIC query = one cluster).
+- Get Vertex AI Gemini access granted on `scope-mvp-prod` so synthesis can move off
+  the Developer API key onto ADC.
 - Add Cloud Scheduler / Cloud Function or Cloud Run job for scheduled ingestion.
-- Add clustering across sources for same-story grouping.
 - Add LLM-as-judge validation loop.
 - Add Vercel deployment configuration.
 - Add production service account with least-privilege IAM.
