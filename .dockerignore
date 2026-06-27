@@ -1,0 +1,7 @@
+.git
+.env
+__pycache__
+*.pyc
+backend/venv
+scope-news-reader/node_modules
+scope-news-reader/.next
