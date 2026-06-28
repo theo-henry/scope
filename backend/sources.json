@@ -390,5 +390,261 @@
     "country": "United States",
     "tier": 1,
     "enabled": true
+  },
+  {
+    "name": "ESPN Top Headlines",
+    "url": "https://www.espn.com/espn/rss/news",
+    "category": "Sports",
+    "country": "United States",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "ESPN NFL",
+    "url": "https://www.espn.com/espn/rss/nfl/news",
+    "category": "Sports",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "ESPN NBA",
+    "url": "https://www.espn.com/espn/rss/nba/news",
+    "category": "Sports",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "ESPN Soccer",
+    "url": "https://www.espn.com/espn/rss/soccer/news",
+    "category": "Sports",
+    "country": "Global",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "ESPNcricinfo",
+    "url": "https://www.espncricinfo.com/rss/content/story/feeds/0.xml",
+    "category": "Sports",
+    "country": "India",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "BBC Sport",
+    "url": "https://feeds.bbci.co.uk/sport/rss.xml",
+    "category": "Sports",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "BBC Football",
+    "url": "https://feeds.bbci.co.uk/sport/football/rss.xml",
+    "category": "Sports",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "Sky Sports News",
+    "url": "https://www.skysports.com/rss/12040",
+    "category": "Sports",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian Sport",
+    "url": "https://www.theguardian.com/sport/rss",
+    "category": "Sports",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian Football",
+    "url": "https://www.theguardian.com/football/rss",
+    "category": "Sports",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "CBS Sports",
+    "url": "https://www.cbssports.com/rss/headlines/",
+    "category": "Sports",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Yahoo Sports",
+    "url": "https://sports.yahoo.com/rss/",
+    "category": "Sports",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Sporting News",
+    "url": "https://www.sportingnews.com/us/rss",
+    "category": "Sports",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Goal.com",
+    "url": "https://www.goal.com/feeds/en/news",
+    "category": "Sports",
+    "country": "Global",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "SCMP Sport",
+    "url": "https://www.scmp.com/rss/95/feed",
+    "category": "Sports",
+    "country": "China",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Times of India Sports",
+    "url": "https://timesofindia.indiatimes.com/rssfeeds/4719148.cms",
+    "category": "Sports",
+    "country": "India",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "The Hindu Sport",
+    "url": "https://www.thehindu.com/sport/feeder/default.rss",
+    "category": "Sports",
+    "country": "India",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Japan Times Sports",
+    "url": "https://www.japantimes.co.jp/sports/feed/",
+    "category": "Sports",
+    "country": "Japan",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "NBC News Top Stories",
+    "url": "https://feeds.nbcnews.com/nbcnews/public/news",
+    "category": "World",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "ABC News Top Stories",
+    "url": "https://abcnews.go.com/abcnews/topstories",
+    "category": "World",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "USA Today",
+    "url": "https://www.usatoday.com/feeds/rss/news/",
+    "category": "World",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Time",
+    "url": "https://time.com/feed/",
+    "category": "World",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Independent UK",
+    "url": "https://www.independent.co.uk/news/uk/rss",
+    "category": "World",
+    "country": "United Kingdom",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "The Telegraph News",
+    "url": "https://www.telegraph.co.uk/news/rss.xml",
+    "category": "World",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Spiegel International",
+    "url": "https://www.spiegel.de/international/index.rss",
+    "category": "World",
+    "country": "Eurozone",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Global Times",
+    "url": "https://www.globaltimes.cn/rss/outbrain.xml",
+    "category": "World",
+    "country": "China",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Kyodo News",
+    "url": "https://english.kyodonews.net/rss/news.xml",
+    "category": "World",
+    "country": "Japan",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Mainichi",
+    "url": "https://mainichi.jp/rss/etc/english_latest.rss",
+    "category": "World",
+    "country": "Japan",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "NDTV Top Stories",
+    "url": "https://feeds.feedburner.com/ndtvnews-top-stories",
+    "category": "World",
+    "country": "India",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Hindustan Times India News",
+    "url": "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml",
+    "category": "World",
+    "country": "India",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "The Conversation",
+    "url": "https://theconversation.com/global/articles.atom",
+    "category": "Science",
+    "country": "Global",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "UN News",
+    "url": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+    "category": "World",
+    "country": "Global",
+    "tier": 2,
+    "enabled": true
   }
 ]

@@ -11,6 +11,7 @@ export type Category =
   | 'World'
   | 'Business'
   | 'Science'
+  | 'Sports'
 
 export const CATEGORIES: Category[] = [
   'Finance',
@@ -20,6 +21,7 @@ export const CATEGORIES: Category[] = [
   'World',
   'Business',
   'Science',
+  'Sports',
 ]
 
 export const COUNTRIES = [

@@ -112,22 +112,35 @@ in `ingest.py`. Each enabled source has:
 name, url, category, country, tier, enabled
 ```
 
-The catalog currently includes (grouped by the filter coverage it adds):
+The catalog currently has ~80 feeds (grouped by the filter coverage it adds):
 
 ```text
 US / general:      BBC*, CNBC (Top/Finance/Markets/Tech/Business), The Guardian*,
                    NPR, Politico, The Hill, MarketWatch, WSJ, The Verge, TechCrunch,
                    Wired, MIT Technology Review, Fox News, National Review,
                    Washington Times, Reason, Fortune, Business Insider, Forbes,
-                   Al Jazeera, Deutsche Welle
-United Kingdom:    BBC*, The Guardian*, Sky News (World/Business)
-Eurozone:          France 24, Euronews, Politico Europe
-China / Asia:      South China Morning Post, Channel NewsAsia
-Japan:             The Japan Times
-India:             The Hindu, Times of India, The Economic Times Markets
+                   NBC News, ABC News, USA Today, Time, Al Jazeera, Deutsche Welle
+United Kingdom:    BBC*, The Guardian*, Sky News (World/Business), The Independent,
+                   The Telegraph
+Eurozone:          France 24, Euronews, Politico Europe, Spiegel International
+China / Asia:      South China Morning Post, Channel NewsAsia, Global Times
+Japan:             The Japan Times, Kyodo News, The Mainichi
+India:             The Hindu, Times of India, The Economic Times Markets, NDTV,
+                   Hindustan Times
+Global:            Al Jazeera, Deutsche Welle, UN News, The Conversation
 Science:           BBC Science, Ars Technica, ScienceDaily, Nature, NASA,
-                   The Guardian Science/Environment
+                   The Guardian Science/Environment, The Conversation
+Sports:            ESPN (Top/NFL/NBA/Soccer), ESPNcricinfo, BBC Sport/Football,
+                   Sky Sports, The Guardian Sport/Football, CBS Sports, Yahoo Sports,
+                   Sporting News, Goal.com, SCMP Sport, Times of India Sports,
+                   The Hindu Sport, The Japan Times Sports
 ```
+
+Categories (`ALLOWED_CATEGORIES` in synthesize.py / `CATEGORIES` in types.ts):
+Finance, Markets, Politics, Tech/AI, World, Business, Science, Sports. Adding a
+category means updating BOTH lists plus adding candidate topics + feeds; the
+frontend nav pills, onboarding, settings, and default profile all derive from
+`CATEGORIES` automatically.
 
 Feeds are chosen so the corpus covers every category AND country filter; the
 country tag on a source is just its home/region focus (the per-story country is

@@ -109,6 +109,7 @@ ALLOWED_CATEGORIES = [
     "World",
     "Business",
     "Science",
+    "Sports",
 ]
 ALLOWED_COUNTRIES = [
     "United States",
@@ -180,6 +181,26 @@ CANDIDATE_TOPICS = [
     {"query": "UK economy", "category": "Business", "country": "United Kingdom"},
     {"query": "European elections", "category": "Politics", "country": "Eurozone"},
     {"query": "Asia markets", "category": "Markets", "country": "China"},
+    {"query": "Germany politics", "category": "Politics", "country": "Eurozone"},
+    {"query": "France politics", "category": "Politics", "country": "Eurozone"},
+    {"query": "Japan technology", "category": "Tech/AI", "country": "Japan"},
+    {"query": "India technology startups", "category": "Tech/AI", "country": "India"},
+    {"query": "China technology", "category": "Tech/AI", "country": "China"},
+    # Sports — broad coverage so the new Sports category/filter always has cards.
+    # Country is the subject region (league/team home), AI re-tags per story.
+    {"query": "football match result", "category": "Sports", "country": "Global"},
+    {"query": "Premier League football", "category": "Sports", "country": "United Kingdom"},
+    {"query": "Champions League", "category": "Sports", "country": "Eurozone"},
+    {"query": "NBA basketball", "category": "Sports", "country": "United States"},
+    {"query": "NFL football", "category": "Sports", "country": "United States"},
+    {"query": "MLB baseball", "category": "Sports", "country": "United States"},
+    {"query": "tennis grand slam", "category": "Sports", "country": "Global"},
+    {"query": "Formula 1 race", "category": "Sports", "country": "Global"},
+    {"query": "cricket match", "category": "Sports", "country": "India"},
+    {"query": "golf tournament", "category": "Sports", "country": "United States"},
+    {"query": "Olympics", "category": "Sports", "country": "Global"},
+    {"query": "World Cup soccer", "category": "Sports", "country": "Global"},
+    {"query": "rugby match", "category": "Sports", "country": "United Kingdom"},
 ]
 
 SYSTEM_INSTRUCTION = (
