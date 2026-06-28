@@ -182,5 +182,69 @@
     "country": "United States",
     "tier": 3,
     "enabled": true
+  },
+  {
+    "name": "Fortune",
+    "url": "https://fortune.com/feed/",
+    "category": "Business",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Business Insider",
+    "url": "https://www.businessinsider.com/rss",
+    "category": "Business",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "Forbes Business",
+    "url": "https://www.forbes.com/business/feed/",
+    "category": "Business",
+    "country": "United States",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "CNBC Business",
+    "url": "https://www.cnbc.com/id/10001147/device/rss/rss.html",
+    "category": "Business",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "BBC Science & Environment",
+    "url": "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+    "category": "Science",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "Ars Technica Science",
+    "url": "https://arstechnica.com/science/feed/",
+    "category": "Science",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "ScienceDaily",
+    "url": "https://www.sciencedaily.com/rss/all.xml",
+    "category": "Science",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Nature",
+    "url": "https://www.nature.com/nature.rss",
+    "category": "Science",
+    "country": "United Kingdom",
+    "tier": 1,
+    "enabled": true
   }
 ]

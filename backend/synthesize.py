@@ -80,7 +80,7 @@ MAX_STORIES = int(os.environ.get("SCOPE_MAX_STORIES", "50"))
 CLUSTER_DOC_MAX_AGE_DAYS = int(
     os.environ.get("SCOPE_CLUSTER_DOC_MAX_AGE_DAYS", str(STORY_RETENTION_DAYS))
 )
-MIN_DOMAINS = int(os.environ.get("SCOPE_MIN_DOMAINS", "3"))
+MIN_DOMAINS = int(os.environ.get("SCOPE_MIN_DOMAINS", "2"))
 EXCEPTION_MIN_DOMAINS = int(os.environ.get("SCOPE_EXCEPTION_MIN_DOMAINS", "2"))
 MIN_DOMAINS_EXCEPTION_CATEGORIES = {
     category.strip()
@@ -118,6 +118,14 @@ CANDIDATE_TOPICS = [
     {"query": "OpenAI AI model", "category": "Tech/AI", "country": "Global"},
     {"query": "data privacy technology", "category": "Tech/AI", "country": "Global"},
     {"query": "semiconductor chips", "category": "Tech/AI", "country": "Global"},
+    {"query": "corporate earnings business", "category": "Business", "country": "United States"},
+    {"query": "mergers acquisitions deal", "category": "Business", "country": "Global"},
+    {"query": "layoffs jobs company", "category": "Business", "country": "United States"},
+    {"query": "retail consumer spending", "category": "Business", "country": "United States"},
+    {"query": "climate change research", "category": "Science", "country": "Global"},
+    {"query": "space mission NASA", "category": "Science", "country": "Global"},
+    {"query": "medical health study", "category": "Science", "country": "Global"},
+    {"query": "new scientific discovery", "category": "Science", "country": "Global"},
     {"query": "trade war", "category": "World", "country": "Global"},
     {"query": "Middle East ceasefire", "category": "World", "country": "Global"},
     {"query": "Ukraine Russia", "category": "World", "country": "Global"},

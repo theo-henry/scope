@@ -17,6 +17,12 @@
     "wsj.com": { "biasLean": "lean-right", "reliability": 88 },
     "nationalreview.com": { "biasLean": "right", "reliability": 72 },
     "washingtontimes.com": { "biasLean": "lean-right", "reliability": 68 },
-    "reason.com": { "biasLean": "lean-right", "reliability": 75 }
+    "reason.com": { "biasLean": "lean-right", "reliability": 75 },
+    "fortune.com": { "biasLean": "center", "reliability": 78 },
+    "businessinsider.com": { "biasLean": "lean-left", "reliability": 73 },
+    "forbes.com": { "biasLean": "center", "reliability": 75 },
+    "arstechnica.com": { "biasLean": "lean-left", "reliability": 80 },
+    "sciencedaily.com": { "biasLean": "center", "reliability": 85 },
+    "nature.com": { "biasLean": "center", "reliability": 92 }
   }
 }
