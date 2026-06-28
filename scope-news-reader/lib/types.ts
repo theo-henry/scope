@@ -143,8 +143,16 @@ export interface Story {
   slug: string
   /** stable hash of the retrieved source cluster, used by the backend to avoid resynthesis */
   sourceKey?: string
+  /** primary (best-fit) category — drives single-value display */
   category: Category
+  /** primary (best-fit) country — drives single-value display */
   country: Country
+  /** every category the story belongs to (AI-assigned); drives filtering.
+   *  Falls back to [category] for caches synthesized before this field existed. */
+  categories?: Category[]
+  /** every country the story belongs to (AI-assigned); drives filtering.
+   *  Falls back to [country] for older caches. */
+  countries?: Country[]
   headline: string
   /** one-line AI summary shown on the feed card and coverage dek */
   aiSummary: string
@@ -162,6 +170,24 @@ export interface Story {
 export interface Profile {
   categories: Category[]
   countries: Country[]
+}
+
+/** All categories a story can be filtered under (AI-assigned list, or the single
+ *  primary category for caches predating the `categories` field). */
+export function storyCategories(story: Story): Category[] {
+  const list = (story.categories ?? []).filter((c): c is Category =>
+    CATEGORIES.includes(c),
+  )
+  return list.length > 0 ? list : [story.category]
+}
+
+/** All countries a story can be filtered under (AI-assigned list, or the single
+ *  primary country for older caches). */
+export function storyCountries(story: Story): Country[] {
+  const list = (story.countries ?? []).filter((c): c is Country =>
+    (COUNTRIES as readonly string[]).includes(c),
+  )
+  return list.length > 0 ? list : [story.country]
 }
 
 export function validityBand(score: number): ValidityBand {

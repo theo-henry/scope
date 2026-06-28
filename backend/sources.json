@@ -246,5 +246,149 @@
     "country": "United Kingdom",
     "tier": 1,
     "enabled": true
+  },
+  {
+    "name": "France 24",
+    "url": "https://www.france24.com/en/rss",
+    "category": "World",
+    "country": "Eurozone",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Euronews",
+    "url": "https://www.euronews.com/rss?level=theme&name=news",
+    "category": "World",
+    "country": "Eurozone",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Politico Europe",
+    "url": "https://www.politico.eu/feed/",
+    "category": "Politics",
+    "country": "Eurozone",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Japan Times",
+    "url": "https://www.japantimes.co.jp/feed/",
+    "category": "World",
+    "country": "Japan",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Hindu",
+    "url": "https://www.thehindu.com/news/national/feeder/default.rss",
+    "category": "World",
+    "country": "India",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Times of India Top Stories",
+    "url": "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "category": "World",
+    "country": "India",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "The Economic Times Markets",
+    "url": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+    "category": "Markets",
+    "country": "India",
+    "tier": 3,
+    "enabled": true
+  },
+  {
+    "name": "South China Morning Post",
+    "url": "https://www.scmp.com/rss/91/feed",
+    "category": "World",
+    "country": "China",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Channel NewsAsia",
+    "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml",
+    "category": "World",
+    "country": "China",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Sky News World",
+    "url": "https://feeds.skynews.com/feeds/rss/world.xml",
+    "category": "World",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Sky News Business",
+    "url": "https://feeds.skynews.com/feeds/rss/business.xml",
+    "category": "Business",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian Science",
+    "url": "https://www.theguardian.com/science/rss",
+    "category": "Science",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "The Guardian Environment",
+    "url": "https://www.theguardian.com/environment/rss",
+    "category": "Science",
+    "country": "United Kingdom",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "NASA Breaking News",
+    "url": "https://www.nasa.gov/feed/",
+    "category": "Science",
+    "country": "United States",
+    "tier": 1,
+    "enabled": true
+  },
+  {
+    "name": "CNBC Technology",
+    "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+    "category": "Tech/AI",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "CNBC Markets",
+    "url": "https://www.cnbc.com/id/20910258/device/rss/rss.html",
+    "category": "Markets",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "Wired",
+    "url": "https://www.wired.com/feed/rss",
+    "category": "Tech/AI",
+    "country": "United States",
+    "tier": 2,
+    "enabled": true
+  },
+  {
+    "name": "MIT Technology Review",
+    "url": "https://www.technologyreview.com/feed/",
+    "category": "Tech/AI",
+    "country": "United States",
+    "tier": 1,
+    "enabled": true
   }
 ]

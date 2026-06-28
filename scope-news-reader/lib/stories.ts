@@ -7,7 +7,8 @@
 // (e.g. not yet made public), we fall back to the committed sample so the app
 // always builds and renders.
 
-import type { Category, Country, Profile, Story } from './types'
+import type { Profile, Story } from './types'
+import { storyCategories, storyCountries } from './types'
 import { DEMO_PROFILE, STORIES as SAMPLE_STORIES } from './mock-data'
 
 export { DEMO_PROFILE }
@@ -82,15 +83,19 @@ async function loadAllStories(): Promise<Story[]> {
   }
 }
 
-// Preferences are a plain filter: a story shows only if BOTH its category and
-// its country are in the saved profile. 'Global' is just another selectable
-// region (international stories) — it is not a wildcard, so de-selecting a
-// region actually hides that region's stories.
+// Preferences are a plain filter: a story shows if it belongs to ANY selected
+// category AND ANY selected country. Stories carry AI-assigned category/country
+// lists, so a story about UK royal taxes reported by US outlets matches the
+// United Kingdom region. 'Global' is just another selectable region (not a
+// wildcard), so de-selecting a region actually hides that region's stories.
 function matchesProfile(story: Story, profile: Profile): boolean {
-  return (
-    profile.categories.includes(story.category as Category) &&
-    profile.countries.includes(story.country as Country)
+  const categoryMatch = storyCategories(story).some((c) =>
+    profile.categories.includes(c),
   )
+  const countryMatch = storyCountries(story).some((c) =>
+    profile.countries.includes(c),
+  )
+  return categoryMatch && countryMatch
 }
 
 export async function getStories(profile: Profile = DEMO_PROFILE): Promise<Story[]> {

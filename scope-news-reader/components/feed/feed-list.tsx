@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { RotateCw } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { Story } from '@/lib/types'
+import { storyCategories } from '@/lib/types'
 import { useFilter } from '@/components/filter-provider'
 import { revealUp, stagger } from '@/lib/motion'
 import { StoryCard } from './story-card'
@@ -16,7 +17,7 @@ export function FeedList({ stories }: { stories: Story[] }) {
     () =>
       active === 'All'
         ? stories
-        : stories.filter((s) => s.category === active),
+        : stories.filter((s) => storyCategories(s).includes(active)),
     [stories, active],
   )
 

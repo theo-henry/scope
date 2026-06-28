@@ -112,25 +112,29 @@ in `ingest.py`. Each enabled source has:
 name, url, category, country, tier, enabled
 ```
 
-The catalog currently includes:
+The catalog currently includes (grouped by the filter coverage it adds):
 
 ```text
-BBC Business / Technology / Politics / World
-CNBC (Top News) / CNBC Finance
-The Guardian Business / Technology / US Politics / World
-NPR News
-Politico
-The Hill
-MarketWatch Top Stories
-The Verge
-TechCrunch
-Al Jazeera
-Deutsche Welle
+US / general:      BBC*, CNBC (Top/Finance/Markets/Tech/Business), The Guardian*,
+                   NPR, Politico, The Hill, MarketWatch, WSJ, The Verge, TechCrunch,
+                   Wired, MIT Technology Review, Fox News, National Review,
+                   Washington Times, Reason, Fortune, Business Insider, Forbes,
+                   Al Jazeera, Deutsche Welle
+United Kingdom:    BBC*, The Guardian*, Sky News (World/Business)
+Eurozone:          France 24, Euronews, Politico Europe
+China / Asia:      South China Morning Post, Channel NewsAsia
+Japan:             The Japan Times
+India:             The Hindu, Times of India, The Economic Times Markets
+Science:           BBC Science, Ars Technica, ScienceDaily, Nature, NASA,
+                   The Guardian Science/Environment
 ```
 
-These feeds were chosen so the corpus actually covers `synthesize.py`'s `TOPICS`
-(Finance, Markets, Politics, Tech/AI, World). The original single BBC World feed did
-not match those topics, so every synthesis query returned 0 docs — see `LESSONS.md`.
+Feeds are chosen so the corpus covers every category AND country filter; the
+country tag on a source is just its home/region focus (the per-story country is
+AI-assigned, see "Story filtering is AI-assigned" below). The original single BBC
+World feed matched none of the topics, so every synthesis query returned 0 docs —
+see `LESSONS.md`. New domains not yet in `backend/outlet_bias.json` fall back to
+center/75 in the bias UI.
 
 Current script behavior:
 
@@ -283,22 +287,44 @@ The Tri-Perspective Lens JSON schema is the shared backend↔frontend contract:
 `LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` mirrors `Story` / `TriPerspectiveLens`
 in `scope-news-reader/lib/types.ts`. Keep them in sync.
 
+Story filtering is AI-assigned. Gemini emits `categories` and `countries` arrays
+(enums constrained to `ALLOWED_CATEGORIES` / `ALLOWED_COUNTRIES`, which mirror the
+frontend `CATEGORIES` / `COUNTRIES`). The first entry of each is the primary
+`category` / `country` used for single-value display; the full arrays drive
+filtering. The topic's category/country is only a retrieval hint and is no longer
+trusted for labeling (a UK royal-tax story retrieved by a US "tax" query is now
+tagged `United Kingdom` by the model). Frontend filters via `storyCategories` /
+`storyCountries` in `lib/types.ts` (any-match on both axes), with a fallback to the
+single primary value for caches predating these fields.
+
 Story retention:
 - `synthesize.py` merges newly generated stories with the existing `latest.json`.
 - Defaults: keep stories published in the last 14 days
   (`SCOPE_STORY_RETENTION_DAYS`) and cap visible stories at 50 (`SCOPE_MAX_STORIES`).
-- New stories replace older retained stories with the same slug/id.
-- Each new story includes `sourceKey`, a stable hash of topic/category/country plus
-  sorted retrieved source URLs. If a fresh retrieved cluster has an existing
-  `sourceKey`, synthesis and image generation are skipped and the old story/image
-  are reused. Retrieved documents older than `SCOPE_CLUSTER_DOC_MAX_AGE_DAYS`
-  are ignored before this decision.
-- `synthesize.py` now evaluates multiple short candidate queries per category,
-  dedupes retrieved docs by source domain, applies quality gates, ranks viable
-  clusters, and only synthesizes the top `SCOPE_MAX_NEW_CLUSTERS`.
+- Deduping is by SOURCE-URL OVERLAP, not just the exact `sourceKey` hash. Two
+  clusters/stories are the same event when they share ≥ `SCOPE_DEDUPE_MIN_SHARED_URLS`
+  (default 2) canonical URLs OR have URL-set Jaccard ≥ `SCOPE_DEDUPE_MIN_JACCARD`
+  (default 0.4). This is why different queries (`tax`, `government budget`) no longer
+  produce 3 cards for one event.
+  - Overlapping candidate clusters are merged (`merge_overlapping_clusters`) into one
+    richer cluster before synthesis.
+  - A new cluster overlapping an existing story: if it adds no new URLs, the old
+    synthesis is REUSED (no Gemini/image cost); if it brings fresh sources, the story
+    is RE-SYNTHESIZED and the stale duplicate is superseded (dropped from the cache).
+  - `sourceKey` is still a stable hash of topic/category/country + sorted source URLs,
+    used as the merge/identity key. Retrieved docs older than
+    `SCOPE_CLUSTER_DOC_MAX_AGE_DAYS` are ignored before any of this.
+- `synthesize.py` evaluates multiple short candidate queries per category, dedupes
+  retrieved docs by source domain, applies quality gates, ranks viable clusters, and
+  only synthesizes the top `SCOPE_MAX_NEW_CLUSTERS`.
 - Quality defaults: at least 3 distinct domains, except Tech/AI and Markets can
   use 2; skip clusters where one domain exceeds `SCOPE_MAX_DOMAIN_SHARE` of recent
   retrieved docs.
+- The end-of-run summary reports accurate buckets — synthesized (incl. re-synthesized
+  duplicates), reused, carried-over, and dropped (aged-out / superseded / over-cap).
+  The old "N new, M previous" line was misleading: "new" double-counted reused
+  stories and "previous" ignored aged-out/superseded drops, so the totals never added
+  up to the visible count.
 
 ## Frontend
 

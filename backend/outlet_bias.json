@@ -23,6 +23,19 @@
     "forbes.com": { "biasLean": "center", "reliability": 75 },
     "arstechnica.com": { "biasLean": "lean-left", "reliability": 80 },
     "sciencedaily.com": { "biasLean": "center", "reliability": 85 },
-    "nature.com": { "biasLean": "center", "reliability": 92 }
+    "nature.com": { "biasLean": "center", "reliability": 92 },
+    "france24.com": { "biasLean": "center", "reliability": 82 },
+    "euronews.com": { "biasLean": "center", "reliability": 80 },
+    "politico.eu": { "biasLean": "lean-left", "reliability": 82 },
+    "japantimes.co.jp": { "biasLean": "center", "reliability": 82 },
+    "thehindu.com": { "biasLean": "lean-left", "reliability": 80 },
+    "indiatimes.com": { "biasLean": "center", "reliability": 70 },
+    "economictimes.indiatimes.com": { "biasLean": "center", "reliability": 75 },
+    "scmp.com": { "biasLean": "center", "reliability": 78 },
+    "channelnewsasia.com": { "biasLean": "center", "reliability": 82 },
+    "skynews.com": { "biasLean": "center", "reliability": 80 },
+    "nasa.gov": { "biasLean": "center", "reliability": 92 },
+    "wired.com": { "biasLean": "lean-left", "reliability": 80 },
+    "technologyreview.com": { "biasLean": "center", "reliability": 85 }
   }
 }

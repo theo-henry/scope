@@ -91,6 +91,34 @@ MIN_DOMAINS_EXCEPTION_CATEGORIES = {
 }
 MAX_NEW_CLUSTERS = int(os.environ.get("SCOPE_MAX_NEW_CLUSTERS", "18"))
 MAX_DOMAIN_SHARE = float(os.environ.get("SCOPE_MAX_DOMAIN_SHARE", "0.6"))
+# Two clusters/stories are treated as the same real-world event when they share at
+# least this many canonical source URLs, OR their URL-set Jaccard similarity is at
+# least this ratio. Used to merge duplicate clusters before synthesis and to
+# supersede/reuse existing stories that cover the same event.
+DEDUPE_MIN_SHARED_URLS = int(os.environ.get("SCOPE_DEDUPE_MIN_SHARED_URLS", "2"))
+DEDUPE_MIN_JACCARD = float(os.environ.get("SCOPE_DEDUPE_MIN_JACCARD", "0.4"))
+
+# Allowed filter values. These MUST mirror CATEGORIES / COUNTRIES in
+# scope-news-reader/lib/types.ts so the AI-assigned filters are renderable and
+# selectable in the frontend without transformation.
+ALLOWED_CATEGORIES = [
+    "Finance",
+    "Markets",
+    "Politics",
+    "Tech/AI",
+    "World",
+    "Business",
+    "Science",
+]
+ALLOWED_COUNTRIES = [
+    "United States",
+    "United Kingdom",
+    "Eurozone",
+    "China",
+    "Japan",
+    "India",
+    "Global",
+]
 # Auth path for Gemini. If a key is set (Gemini Developer API / AI Studio), use it;
 # otherwise fall back to Vertex AI via ADC. Both go through the google-genai SDK.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
@@ -141,6 +169,17 @@ CANDIDATE_TOPICS = [
     {"query": "Bank of Japan", "category": "Finance", "country": "Japan"},
     {"query": "India economy", "category": "World", "country": "India"},
     {"query": "India politics", "category": "Politics", "country": "India"},
+    # United Kingdom topics — the UK has strong feed coverage (BBC, Guardian, Sky)
+    # but previously no targeted query, so UK-centric events (royals, Westminster
+    # budget/tax) never formed a UK-tagged cluster and were invisible under the
+    # United Kingdom filter.
+    {"query": "United Kingdom budget tax", "category": "Politics", "country": "United Kingdom"},
+    {"query": "UK government policy", "category": "Politics", "country": "United Kingdom"},
+    {"query": "British royal family", "category": "World", "country": "United Kingdom"},
+    {"query": "Bank of England", "category": "Finance", "country": "United Kingdom"},
+    {"query": "UK economy", "category": "Business", "country": "United Kingdom"},
+    {"query": "European elections", "category": "Politics", "country": "Eurozone"},
+    {"query": "Asia markets", "category": "Markets", "country": "China"},
 ]
 
 SYSTEM_INSTRUCTION = (
@@ -156,7 +195,15 @@ SYSTEM_INSTRUCTION = (
     "points they diverge on.\n"
     "Lens 3 (Skeptic / Bias & Validity): speculative claims, missing data, and "
     "narrative skew; set validityScore (0-100) from how many independent outlets "
-    "corroborate the core facts, and justify it in validityRationale."
+    "corroborate the core facts, and justify it in validityRationale.\n\n"
+    "Also classify the story for filtering. From the article content (not the "
+    "outlets' home regions), choose every applicable value:\n"
+    f"  categories (1-3) from: {', '.join(ALLOWED_CATEGORIES)}\n"
+    f"  countries (1-3) from: {', '.join(ALLOWED_COUNTRIES)}\n"
+    "Put the single best-fit value first in each list. Use 'Global' only when the "
+    "story is genuinely international with no dominant country. Pick the country the "
+    "story is ABOUT (e.g. a story about King Charles's taxes is 'United Kingdom', "
+    "even if reported by U.S. outlets)."
 )
 
 # Structured-output schema. Mirrors TriPerspectiveLens in the frontend types so
@@ -166,6 +213,14 @@ LENS_RESPONSE_SCHEMA = {
     "properties": {
         "headline": {"type": "string"},
         "aiSummary": {"type": "string"},
+        "categories": {
+            "type": "array",
+            "items": {"type": "string", "enum": ALLOWED_CATEGORIES},
+        },
+        "countries": {
+            "type": "array",
+            "items": {"type": "string", "enum": ALLOWED_COUNTRIES},
+        },
         "lenses": {
             "type": "object",
             "properties": {
@@ -197,7 +252,7 @@ LENS_RESPONSE_SCHEMA = {
             "required": ["institutional", "reformist", "skeptic"],
         },
     },
-    "required": ["headline", "aiSummary", "lenses"],
+    "required": ["headline", "aiSummary", "categories", "countries", "lenses"],
 }
 
 
@@ -284,6 +339,57 @@ def canonical_url(url):
         host = host[4:]
     path = parsed.path.rstrip("/")
     return f"{host}{path}" if host or path else (url or "").strip()
+
+
+def doc_url_set(docs):
+    return {
+        canonical_url(doc.get("link", ""))
+        for doc in docs
+        if canonical_url(doc.get("link", ""))
+    }
+
+
+def story_url_set(story):
+    return {
+        canonical_url(source.get("url", ""))
+        for source in story.get("sources", [])
+        if canonical_url(source.get("url", ""))
+    }
+
+
+def url_sets_overlap(a, b):
+    """Same-event test: enough shared canonical URLs, or high Jaccard similarity.
+
+    Two clusters retrieved by different queries (e.g. 'tax' and 'government budget')
+    pull overlapping article sets for one event; comparing the actual URLs collapses
+    them where the exact-sourceKey hash cannot.
+    """
+    if not a or not b:
+        return False
+    shared = len(a & b)
+    if shared == 0:
+        return False
+    if shared >= DEDUPE_MIN_SHARED_URLS:
+        return True
+    jaccard = shared / len(a | b)
+    return jaccard >= DEDUPE_MIN_JACCARD
+
+
+def best_overlapping_story(cluster_urls, indexed_stories, used_keys):
+    """Return (story, shared_count) for the existing story that best matches the
+    cluster by source overlap and is not already claimed, else (None, 0)."""
+    best_story = None
+    best_shared = 0
+    for story, urls, key in indexed_stories:
+        if key in used_keys:
+            continue
+        if not url_sets_overlap(cluster_urls, urls):
+            continue
+        shared = len(cluster_urls & urls)
+        if shared > best_shared:
+            best_story = story
+            best_shared = shared
+    return best_story, best_shared
 
 
 def cluster_source_key(topic, docs):
@@ -650,15 +756,43 @@ def generate_story_image(genai_client, storage_client, story, docs):
     return generate_imagen_style_image(genai_client, storage_client, story, prompt)
 
 
+def sanitize_filter_list(values, allowed, fallback):
+    """Keep only allowed values (order-preserving, de-duped); fall back if empty.
+
+    The model is asked to emit categories/countries from a fixed enum, but we still
+    guard the cache contract here so a stray value can never reach the frontend.
+    """
+    seen = []
+    for value in values or []:
+        if value in allowed and value not in seen:
+            seen.append(value)
+    if not seen and fallback in allowed:
+        seen.append(fallback)
+    return seen or [fallback]
+
+
 def build_story(topic, docs, generated, stats=None):
     sources = cluster_to_sources(docs)
     headline = generated["headline"]
+    # The AI classifies the story from article content; the topic's category/country
+    # is only a retrieval hint (often wrong, e.g. a UK royal-tax story retrieved by a
+    # US "tax" query). Trust the model but guarantee a valid, non-empty filter list.
+    categories = sanitize_filter_list(
+        generated.get("categories"), ALLOWED_CATEGORIES, topic["category"]
+    )
+    countries = sanitize_filter_list(
+        generated.get("countries"), ALLOWED_COUNTRIES, topic["country"]
+    )
     story = {
         "id": f"st_{slugify(headline)[:24]}",
         "slug": slugify(headline),
         "sourceKey": cluster_source_key(topic, docs),
-        "category": topic["category"],
-        "country": topic["country"],
+        # Primary value (first AI choice) drives single-value display; the arrays
+        # drive filtering so a story can match every filter it belongs to.
+        "category": categories[0],
+        "country": countries[0],
+        "categories": categories,
+        "countries": countries,
         "headline": headline,
         "aiSummary": generated["aiSummary"],
         "lenses": generated["lenses"],
@@ -692,39 +826,120 @@ def load_existing_stories(bucket):
     return [story for story in data if isinstance(story, dict)]
 
 
-def merge_retained_stories(new_stories, existing_stories):
+def merge_retained_stories(new_stories, existing_stories, superseded_keys=None):
+    """Merge freshly produced stories with retained older ones and return the
+    visible list plus a diagnostic breakdown of why each existing story was kept
+    or dropped (so the run can report accurate counts rather than raw inputs)."""
+    superseded_keys = superseded_keys or set()
     cutoff = datetime.now(timezone.utc) - timedelta(days=STORY_RETENTION_DAYS)
     merged = {}
+    new_keys = set()
 
     for story in new_stories:
         key = story_key(story)
         if key:
             merged[key] = story
+            new_keys.add(key)
 
+    carried_over = 0
+    dropped_aged_out = 0
+    dropped_superseded = 0
     for story in existing_stories:
         key = story_key(story)
-        if not key or key in merged:
+        if not key:
+            continue
+        if key in superseded_keys:
+            dropped_superseded += 1
+            continue
+        if key in merged:
+            # An existing story re-emerged this run (reused or re-synthesized).
             continue
         published_at = parse_story_time(story)
         if published_at and published_at >= cutoff:
             merged[key] = story
+            carried_over += 1
+        else:
+            dropped_aged_out += 1
 
     stories = list(merged.values())
     stories.sort(
         key=lambda story: parse_story_time(story) or datetime.min.replace(tzinfo=timezone.utc),
         reverse=True,
     )
-    return stories[:MAX_STORIES]
-
-
-def existing_stories_by_source_key(existing_stories):
-    cutoff = datetime.now(timezone.utc) - timedelta(days=STORY_RETENTION_DAYS)
-    return {
-        story["sourceKey"]: story
-        for story in existing_stories
-        if isinstance(story.get("sourceKey"), str)
-        and (parse_story_time(story) or datetime.min.replace(tzinfo=timezone.utc)) >= cutoff
+    visible = stories[:MAX_STORIES]
+    diagnostics = {
+        "carried_over": carried_over,
+        "dropped_aged_out": dropped_aged_out,
+        "dropped_superseded": dropped_superseded,
+        "dropped_over_cap": max(0, len(stories) - len(visible)),
     }
+    return visible, diagnostics
+
+
+def recent_existing_stories(existing_stories):
+    """Existing stories still within the retention window, eligible for reuse."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=STORY_RETENTION_DAYS)
+    return [
+        story
+        for story in existing_stories
+        if (parse_story_time(story) or datetime.min.replace(tzinfo=timezone.utc)) >= cutoff
+    ]
+
+
+def index_existing_by_url(existing_stories):
+    """[(story, url_set, key)] for recent existing stories, for overlap matching."""
+    return [
+        (story, story_url_set(story), story_key(story))
+        for story in recent_existing_stories(existing_stories)
+    ]
+
+
+def merge_overlapping_clusters(clusters):
+    """Collapse viable clusters that cover the same event into one richer cluster.
+
+    Clusters are deduped earlier only by exact sourceKey; different queries about the
+    same event produce different keys but overlapping source URLs. We group by URL
+    overlap (single-link), union their deduped docs, keep the best-ranked member's
+    topic as the representative, and recompute stats + sourceKey on the union.
+    """
+    remaining = list(clusters)
+    merged = []
+    while remaining:
+        seed = remaining.pop(0)
+        group = [seed]
+        group_urls = doc_url_set(seed["docs"])
+        changed = True
+        while changed:
+            changed = False
+            for other in list(remaining):
+                if url_sets_overlap(group_urls, doc_url_set(other["docs"])):
+                    group.append(other)
+                    group_urls |= doc_url_set(other["docs"])
+                    remaining.remove(other)
+                    changed = True
+        if len(group) == 1:
+            merged.append(seed)
+            continue
+        representative = max(group, key=cluster_rank)
+        combined_docs = dedupe_docs_by_domain(
+            [doc for member in group for doc in member["docs"]]
+        )
+        topic = representative["topic"]
+        stats = cluster_stats(topic, combined_docs, combined_docs, combined_docs)
+        source_key = cluster_source_key(topic, combined_docs)
+        print(
+            f"Merged {len(group)} overlapping clusters into '{topic['query']}' "
+            f"({stats['domain_count']} domains)."
+        )
+        merged.append(
+            {
+                "topic": topic,
+                "docs": combined_docs,
+                "sourceKey": source_key,
+                "stats": stats,
+            }
+        )
+    return merged
 
 
 def evaluate_candidate_clusters(search_client):
@@ -771,7 +986,8 @@ def evaluate_candidate_clusters(search_client):
         selected_by_key[source_key] = cluster
         candidates.append(report_item)
 
-    ranked = sorted(selected_by_key.values(), key=cluster_rank, reverse=True)
+    deduped = merge_overlapping_clusters(list(selected_by_key.values()))
+    ranked = sorted(deduped, key=cluster_rank, reverse=True)
     selected = select_with_coverage(ranked, MAX_NEW_CLUSTERS)
     selected_keys = {cluster["sourceKey"] for cluster in selected}
     for cluster in ranked:
@@ -824,11 +1040,13 @@ def select_with_coverage(ranked, limit):
     return selected
 
 
-def upload_cache(stories, existing_stories=None, bucket=None):
+def upload_cache(stories, existing_stories=None, bucket=None, superseded_keys=None):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     bucket = bucket or storage.Client().bucket(BUCKET_NAME)
     existing_stories = existing_stories if existing_stories is not None else load_existing_stories(bucket)
-    retained_stories = merge_retained_stories(stories, existing_stories)
+    retained_stories, diagnostics = merge_retained_stories(
+        stories, existing_stories, superseded_keys
+    )
     body = json.dumps(retained_stories, indent=2, ensure_ascii=False)
 
     # Timestamped archive (audit/history) + a stable `latest.json` that the
@@ -839,15 +1057,11 @@ def upload_cache(stories, existing_stories=None, bucket=None):
     bucket.blob("synthesized/latest.json").upload_from_string(
         body, content_type="application/json"
     )
-    print(
-        f"Retained {len(retained_stories)} visible stories "
-        f"({len(stories)} new, {len(existing_stories)} previous, "
-        f"{STORY_RETENTION_DAYS} day retention, max {MAX_STORIES})."
-    )
     return (
         f"gs://{BUCKET_NAME}/{archive}",
         f"gs://{BUCKET_NAME}/synthesized/latest.json",
         retained_stories,
+        diagnostics,
     )
 
 
@@ -862,7 +1076,9 @@ def main(dry_run=False, refresh_report=None):
     storage_client = storage.Client()
     bucket = storage_client.bucket(BUCKET_NAME)
     existing_stories = load_existing_stories(bucket)
-    existing_by_source_key = existing_stories_by_source_key(existing_stories)
+    existing_index = index_existing_by_url(existing_stories)
+    used_existing_keys = set()
+    superseded_keys = set()
 
     clusters, candidates, skipped = evaluate_candidate_clusters(search_client)
     report = {
@@ -873,6 +1089,7 @@ def main(dry_run=False, refresh_report=None):
         "skipped_count": len(skipped),
         "reused_count": 0,
         "synthesized_count": 0,
+        "superseded_count": 0,
         "image_generated_count": 0,
         "image_failed_count": 0,
         "final_visible_count": 0,
@@ -893,20 +1110,41 @@ def main(dry_run=False, refresh_report=None):
             "headline": "",
             "image": "",
         }
-        if source_key in existing_by_source_key:
-            story = existing_by_source_key[source_key]
-            stories.append(story)
-            report["reused_count"] += 1
-            cluster_report["action"] = "reused"
-            cluster_report["headline"] = story.get("headline", "")
+
+        # Match this cluster against existing stories by source overlap (not just
+        # the exact sourceKey hash). Identical/subset coverage reuses the old
+        # synthesis; the same event with fresh sources re-synthesizes and drops
+        # the stale duplicate so one event never produces multiple cards.
+        cluster_urls = doc_url_set(docs)
+        match, shared = best_overlapping_story(
+            cluster_urls, existing_index, used_existing_keys
+        )
+        if match is not None:
+            match_key = story_key(match)
+            used_existing_keys.add(match_key)
+            new_urls = cluster_urls - story_url_set(match)
+            if not new_urls:
+                stories.append(match)
+                report["reused_count"] += 1
+                cluster_report["action"] = "reused"
+                cluster_report["headline"] = match.get("headline", "")
+                print(
+                    f"Reused: {match['headline']} "
+                    f"({len(match.get('sources', []))} sources, {shared} shared URLs)"
+                )
+                report["clusters"].append(cluster_report)
+                continue
+            superseded_keys.add(match_key)
+            cluster_report["supersedes"] = match.get("headline", "")
             print(
-                f"Reused: {story['headline']} "
-                f"({len(story.get('sources', []))} sources, sourceKey {source_key})"
+                f"Superseding '{match['headline']}' "
+                f"({shared} shared, {len(new_urls)} new URLs)."
             )
-            report["clusters"].append(cluster_report)
-            continue
+
         if dry_run:
-            cluster_report["action"] = "would_synthesize"
+            cluster_report["action"] = (
+                "would_resynthesize" if cluster_report.get("supersedes") else "would_synthesize"
+            )
             report["clusters"].append(cluster_report)
             print(
                 f"Dry run: would synthesize '{topic['query']}' "
@@ -919,7 +1157,11 @@ def main(dry_run=False, refresh_report=None):
         generated = synthesize_lenses(genai_client, docs)
         story = build_story(topic, docs, generated, stats=cluster["stats"])
         report["synthesized_count"] += 1
-        cluster_report["action"] = "synthesized"
+        if cluster_report.get("supersedes"):
+            report["superseded_count"] += 1
+            cluster_report["action"] = "resynthesized"
+        else:
+            cluster_report["action"] = "synthesized"
         cluster_report["headline"] = story["headline"]
         try:
             story["image"] = generate_story_image(
@@ -947,16 +1189,35 @@ def main(dry_run=False, refresh_report=None):
     if not stories:
         raise SystemExit("No stories synthesized or reused; check retrieval and topics.")
 
-    archive_uri, latest_uri, retained_stories = upload_cache(
+    archive_uri, latest_uri, retained_stories, diagnostics = upload_cache(
         stories,
         existing_stories=existing_stories,
         bucket=bucket,
+        superseded_keys=superseded_keys,
     )
     report["archive_uri"] = archive_uri
     report["latest_uri"] = latest_uri
     report["final_visible_count"] = len(retained_stories)
+    report["retention"] = diagnostics
     report["finished_at"] = datetime.now(timezone.utc).isoformat()
-    print(f"\nUploaded {len(stories)} synthesized stories to:")
+
+    # Accurate breakdown: the clusters this run produced split into freshly
+    # synthesized (incl. re-synthesized duplicates) and reused; the rest of the
+    # visible list is older stories carried over. This replaces the old, confusing
+    # "N new, M previous" line where "new" double-counted reused stories and
+    # "previous" ignored aged-out/superseded drops.
+    print(
+        f"\nRetained {len(retained_stories)} visible stories: "
+        f"{report['synthesized_count']} synthesized "
+        f"({report['superseded_count']} of them re-synthesized duplicates), "
+        f"{report['reused_count']} reused, "
+        f"{diagnostics['carried_over']} carried over. "
+        f"Dropped {diagnostics['dropped_aged_out']} aged-out, "
+        f"{diagnostics['dropped_superseded']} superseded, "
+        f"{diagnostics['dropped_over_cap']} over cap "
+        f"({STORY_RETENTION_DAYS} day retention, max {MAX_STORIES})."
+    )
+    print(f"Uploaded to:")
     print(f"  archive: {archive_uri}")
     print(f"  latest:  {latest_uri}")
     return report
