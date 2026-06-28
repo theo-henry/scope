@@ -89,7 +89,7 @@ MIN_DOMAINS_EXCEPTION_CATEGORIES = {
     ).split(",")
     if category.strip()
 }
-MAX_NEW_CLUSTERS = int(os.environ.get("SCOPE_MAX_NEW_CLUSTERS", "10"))
+MAX_NEW_CLUSTERS = int(os.environ.get("SCOPE_MAX_NEW_CLUSTERS", "18"))
 MAX_DOMAIN_SHARE = float(os.environ.get("SCOPE_MAX_DOMAIN_SHARE", "0.6"))
 # Auth path for Gemini. If a key is set (Gemini Developer API / AI Studio), use it;
 # otherwise fall back to Vertex AI via ADC. Both go through the google-genai SDK.
@@ -129,8 +129,18 @@ CANDIDATE_TOPICS = [
     {"query": "trade war", "category": "World", "country": "Global"},
     {"query": "Middle East ceasefire", "category": "World", "country": "Global"},
     {"query": "Ukraine Russia", "category": "World", "country": "Global"},
-    {"query": "European Union tariffs", "category": "World", "country": "Global"},
-    {"query": "China trade", "category": "World", "country": "Global"},
+    # Country-targeted topics so the country filter is demonstrable. The story's
+    # country is the topic hint (the subject region), not the outlet's HQ; these
+    # rely on the World/Finance feeds (BBC, Guardian, Al Jazeera, DW, NPR, CNBC)
+    # actually covering the region that day.
+    {"query": "European Central Bank", "category": "Finance", "country": "Eurozone"},
+    {"query": "European Union tariffs", "category": "World", "country": "Eurozone"},
+    {"query": "China economy", "category": "World", "country": "China"},
+    {"query": "China trade", "category": "World", "country": "China"},
+    {"query": "Japan economy", "category": "World", "country": "Japan"},
+    {"query": "Bank of Japan", "category": "Finance", "country": "Japan"},
+    {"query": "India economy", "category": "World", "country": "India"},
+    {"query": "India politics", "category": "Politics", "country": "India"},
 ]
 
 SYSTEM_INSTRUCTION = (
@@ -761,19 +771,57 @@ def evaluate_candidate_clusters(search_client):
         selected_by_key[source_key] = cluster
         candidates.append(report_item)
 
-    selected = sorted(selected_by_key.values(), key=cluster_rank, reverse=True)
-    overflow = selected[MAX_NEW_CLUSTERS:]
-    selected = selected[:MAX_NEW_CLUSTERS]
-    for cluster in overflow:
-        skipped.append(
-            {
-                **cluster["stats"],
-                "sourceKey": cluster["sourceKey"],
-                "skip_reason": f"outside top {MAX_NEW_CLUSTERS} ranked clusters",
-            }
-        )
+    ranked = sorted(selected_by_key.values(), key=cluster_rank, reverse=True)
+    selected = select_with_coverage(ranked, MAX_NEW_CLUSTERS)
+    selected_keys = {cluster["sourceKey"] for cluster in selected}
+    for cluster in ranked:
+        if cluster["sourceKey"] not in selected_keys:
+            skipped.append(
+                {
+                    **cluster["stats"],
+                    "sourceKey": cluster["sourceKey"],
+                    "skip_reason": (
+                        f"outside top {MAX_NEW_CLUSTERS} coverage-balanced clusters"
+                    ),
+                }
+            )
 
     return selected, candidates, skipped
+
+
+def select_with_coverage(ranked, limit):
+    """Pick up to `limit` clusters, prioritizing category/country coverage.
+
+    `ranked` is already sorted best-first. The first pass greedily takes the
+    best-ranked cluster that introduces a not-yet-covered category OR country,
+    so every category and country that has a viable cluster gets represented
+    before the remaining slots are filled by rank. This replaces a flat
+    top-N-by-domain-count cut, which always starved long-tail categories
+    (Science, Business) and niche countries.
+    """
+    if limit <= 0:
+        return []
+    selected = []
+    seen_keys = set()
+    covered_categories = set()
+    covered_countries = set()
+    for cluster in ranked:
+        if len(selected) >= limit:
+            break
+        category = cluster["topic"]["category"]
+        country = cluster["topic"]["country"]
+        if category not in covered_categories or country not in covered_countries:
+            selected.append(cluster)
+            seen_keys.add(cluster["sourceKey"])
+            covered_categories.add(category)
+            covered_countries.add(country)
+    for cluster in ranked:
+        if len(selected) >= limit:
+            break
+        if cluster["sourceKey"] not in seen_keys:
+            selected.append(cluster)
+            seen_keys.add(cluster["sourceKey"])
+    return selected
 
 
 def upload_cache(stories, existing_stories=None, bucket=None):

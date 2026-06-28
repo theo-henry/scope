@@ -1,20 +1,29 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowRight, Search, Check } from 'lucide-react'
-import { CATEGORIES, COUNTRIES, type Category, type Country } from '@/lib/types'
-import { DEMO_PROFILE } from '@/lib/mock-data'
+import {
+  CATEGORIES,
+  COUNTRIES,
+  type Category,
+  type Country,
+  type Profile,
+} from '@/lib/types'
+import { saveProfile } from '@/app/actions'
 import { SPRING, revealUp, stagger } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
-export function OnboardingCard() {
+export function OnboardingCard({ initialProfile }: { initialProfile: Profile }) {
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const [categories, setCategories] = useState<Category[]>(
-    DEMO_PROFILE.categories,
+    initialProfile.categories,
   )
-  const [countries, setCountries] = useState<Country[]>(DEMO_PROFILE.countries)
+  const [countries, setCountries] = useState<Country[]>(
+    initialProfile.countries,
+  )
   const [query, setQuery] = useState('')
 
   const filteredCountries = useMemo(
@@ -33,7 +42,16 @@ export function OnboardingCard() {
     )
   }
 
-  const canContinue = categories.length > 0 && countries.length > 0
+  const canContinue =
+    categories.length > 0 && countries.length > 0 && !isPending
+
+  function handleContinue() {
+    startTransition(async () => {
+      await saveProfile({ categories, countries })
+      router.push('/')
+      router.refresh()
+    })
+  }
 
   return (
     <motion.div
@@ -122,10 +140,10 @@ export function OnboardingCard() {
           whileTap={{ scale: canContinue ? 0.98 : 1 }}
           transition={SPRING}
           disabled={!canContinue}
-          onClick={() => router.push('/')}
+          onClick={handleContinue}
           className="flex items-center gap-2 rounded-sm bg-ink px-5 py-2.5 text-sm font-medium text-paper transition-opacity disabled:opacity-40"
         >
-          Show my feed
+          {isPending ? 'Saving' : 'Show my feed'}
           <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
         </motion.button>
       </motion.div>

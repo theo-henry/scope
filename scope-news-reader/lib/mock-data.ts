@@ -1,9 +1,11 @@
-import type { Profile, Source, Story } from './types'
+import { CATEGORIES, COUNTRIES, type Profile, type Source, type Story } from './types'
 
-// v1 ships a single hardcoded demo profile. Supabase `profiles` replaces this later.
+// Default profile used when the visitor has not saved preferences yet. It opts
+// into everything so the unfiltered feed shows all categories/regions; editing
+// preferences (persisted to a cookie) then narrows the feed. See lib/profile.ts.
 export const DEMO_PROFILE: Profile = {
-  categories: ['Finance', 'Markets', 'Politics', 'Tech/AI', 'World'],
-  countries: ['United States', 'United Kingdom', 'Eurozone', 'Global'],
+  categories: [...CATEGORIES],
+  countries: [...COUNTRIES],
 }
 
 // Curated outlet bias/reliability (subset of the future data/outlet-bias.json).

@@ -29,7 +29,7 @@ export function SettingsView({ profile }: { profile: Profile }) {
         <section className="rounded-lg border border-hairline bg-surface p-6">
           <h2 className="text-base font-medium text-ink">Preferences</h2>
           <p className="mt-1 text-sm text-slate">
-            The demo runs on a single saved profile.
+            Saved preferences filter every page. Edit them to change your feed.
           </p>
 
           <div className="mt-5">

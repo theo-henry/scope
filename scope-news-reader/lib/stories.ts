@@ -82,11 +82,14 @@ async function loadAllStories(): Promise<Story[]> {
   }
 }
 
+// Preferences are a plain filter: a story shows only if BOTH its category and
+// its country are in the saved profile. 'Global' is just another selectable
+// region (international stories) — it is not a wildcard, so de-selecting a
+// region actually hides that region's stories.
 function matchesProfile(story: Story, profile: Profile): boolean {
   return (
     profile.categories.includes(story.category as Category) &&
-    (profile.countries.includes(story.country as Country) ||
-      profile.countries.includes('Global'))
+    profile.countries.includes(story.country as Country)
   )
 }
 
