@@ -88,7 +88,7 @@ Then start the dev server:
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The app fetches `latest.json` from GCS at startup. The chat panel on each story page sends questions to `/api/chat`, which calls Gemini and returns grounded answers with source citations.
+Open [http://localhost:3000](http://localhost:3000). The app fetches `latest.json` from GCS at startup. The chat panel on each story page sends questions to `/api/chat`, which retrieves the most relevant synthesized stories locally (keyword scoring over the already-loaded `latest.json`, no separate vector store), passes that context to Gemini, and returns grounded answers with story/source citations.
 
 ---
 

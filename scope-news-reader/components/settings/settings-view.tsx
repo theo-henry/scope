@@ -8,10 +8,11 @@ import { Reveal } from '@/components/reveal'
 // Read-only, env-driven view. Real values come from server env at build/runtime;
 // no key is ever rendered.
 const MODEL_STATUS = [
-  { label: 'Synthesis & chat model', value: 'gpt-4o-mini', source: 'LLM_MODEL' },
-  { label: 'Embedding model', value: 'text-embedding-3-small', source: 'EMBED_MODEL' },
-  { label: 'Provider', value: 'OpenAI', source: 'server env' },
-  { label: 'Data store', value: 'Supabase · pgvector', source: 'NEXT_PUBLIC_SUPABASE_URL' },
+  { label: 'Synthesis & chat model', value: 'gemini-2.5-flash', source: 'SCOPE_GEMINI_MODEL' },
+  { label: 'Story image model', value: 'gemini-3.1-flash-image', source: 'SCOPE_GEMINI_IMAGE_MODEL' },
+  { label: 'Provider', value: 'Google · Gemini', source: 'server env' },
+  { label: 'Retrieval', value: 'Discovery Engine', source: 'SCOPE_SEARCH_ENGINE_ID' },
+  { label: 'Story data', value: 'GCS · latest.json', source: 'SCOPE_STORIES_URL' },
 ]
 
 export function SettingsView({ profile }: { profile: Profile }) {
@@ -108,8 +109,8 @@ export function SettingsView({ profile }: { profile: Profile }) {
                 <CircleCheck className="h-3.5 w-3.5 text-[color:var(--valid-high)]" strokeWidth={1.5} />
                 Server-side only
               </span>{' '}
-              — OPENAI_API_KEY and news API keys run in route handlers and never
-              reach the client.
+              — GEMINI_API_KEY runs in the /api/chat route handler and never
+              reaches the client.
             </p>
           </div>
 
