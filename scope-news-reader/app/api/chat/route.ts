@@ -1,5 +1,12 @@
 import type { NextRequest } from 'next/server'
-import type { Story } from '@/lib/types'
+import type { ChatCitation } from '@/lib/chat-types'
+import {
+  formatRetrievedStoriesForPrompt,
+  retrieveChatStories,
+  summarizeRetrievedStories,
+  type RetrievedChatStory,
+} from '@/lib/chat-retrieval'
+import { getAllStories } from '@/lib/stories'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? ''
 const MODEL = process.env.SCOPE_GEMINI_MODEL ?? 'gemini-2.5-flash'
@@ -7,10 +14,11 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MO
 
 const SYSTEM_PROMPT =
   'You are Scope\'s grounded chat assistant. You answer questions ONLY from the ' +
-  'story context provided. Rules: (1) Use ONLY facts present in the context — never ' +
-  'invent details. (2) Cite sources by their 1-based index from the SOURCES list. ' +
-  '(3) If the question cannot be answered from the context, say so and do not speculate. ' +
-  '(4) Keep answers concise: 2-4 sentences.'
+  'retrieved synthesized story context provided. Rules: (1) Use ONLY facts present ' +
+  'in the context — never invent details. (2) Cite every factual answer with storyId ' +
+  'and, when a specific source supports the claim, that source\'s 1-based sourceIndex. ' +
+  '(3) If the question cannot be answered from the retrieved context, say so and do ' +
+  'not speculate. (4) Keep answers concise: 2-4 sentences.'
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -21,42 +29,90 @@ const RESPONSE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          n: { type: 'integer' },
+          storyId: { type: 'string' },
+          storySlug: { type: 'string' },
+          storyHeadline: { type: 'string' },
+          sourceIndex: { type: 'integer' },
           outlet: { type: 'string' },
           url: { type: 'string' },
         },
-        required: ['n', 'outlet', 'url'],
+        required: ['storyId', 'storySlug', 'storyHeadline'],
       },
     },
   },
   required: ['answer', 'citations'],
 }
 
-function buildContext(story: Story): string {
-  const sources = story.sources
-    .map((s, i) => `[${i + 1}] ${s.outlet} — "${s.articleTitle}" ${s.url}`)
-    .join('\n')
+interface ChatRequestBody {
+  question?: unknown
+  storyId?: unknown
+  story?: { id?: unknown }
+}
 
-  const { institutional, reformist, skeptic } = story.lenses
-  const missing = skeptic.missingNote ? `\nMissing context: ${skeptic.missingNote}` : ''
+interface RawCitation {
+  storyId?: unknown
+  storySlug?: unknown
+  storyHeadline?: unknown
+  sourceIndex?: unknown
+  outlet?: unknown
+  url?: unknown
+}
 
-  return `STORY: ${story.headline}
-SUMMARY: ${story.aiSummary}
+function sanitizeCitations(
+  rawCitations: RawCitation[],
+  results: RetrievedChatStory[],
+  answer: string,
+): ChatCitation[] {
+  const storyById = new Map(results.map(({ story }) => [story.id, story]))
+  const storyBySlug = new Map(results.map(({ story }) => [story.slug, story]))
+  const citations: ChatCitation[] = []
+  const seen = new Set<string>()
 
-LENS 1 — Institutional / Neutral Synthesis:
-${institutional.synthesis}
+  for (const raw of rawCitations) {
+    const storyId = typeof raw.storyId === 'string' ? raw.storyId : undefined
+    const storySlug = typeof raw.storySlug === 'string' ? raw.storySlug : undefined
+    const story = (storyId && storyById.get(storyId)) || (storySlug && storyBySlug.get(storySlug))
+    if (!story) continue
 
-LENS 2 — Reformist / Divergence:
-${reformist.summary}
-Agreements: ${reformist.agreements.join(' | ')}
-Divergences: ${reformist.divergences.join(' | ')}
+    const sourceIndex =
+      typeof raw.sourceIndex === 'number' && Number.isInteger(raw.sourceIndex)
+        ? raw.sourceIndex
+        : undefined
+    const source =
+      sourceIndex && sourceIndex >= 1 && sourceIndex <= story.sources.length
+        ? story.sources[sourceIndex - 1]
+        : undefined
+    const key = `${story.id}:${sourceIndex ?? 'story'}`
+    if (seen.has(key)) continue
+    seen.add(key)
 
-LENS 3 — Skeptic / Bias & Validity:
-${skeptic.summary}
-Validity: ${skeptic.validityScore}/100 — ${skeptic.validityRationale}${missing}
+    citations.push({
+      storyId: story.id,
+      storySlug: story.slug,
+      storyHeadline: story.headline,
+      ...(source
+        ? {
+            sourceIndex,
+            outlet: source.outlet,
+            url: source.url,
+          }
+        : {}),
+    })
+  }
 
-SOURCES (cite by number):
-${sources}`
+  if (citations.length === 0 && results.length > 0 && !isAbstention(answer)) {
+    citations.push({
+      storyId: results[0].story.id,
+      storySlug: results[0].story.slug,
+      storyHeadline: results[0].story.headline,
+    })
+  }
+
+  return citations
+}
+
+function isAbstention(answer: string): boolean {
+  return /cannot|can't|couldn't|insufficient|not enough|not in|not provided/i.test(answer)
 }
 
 export async function POST(req: NextRequest) {
@@ -64,25 +120,51 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 })
   }
 
-  let question: string, story: Story
+  let body: ChatRequestBody
   try {
-    ;({ question, story } = await req.json())
+    body = (await req.json()) as ChatRequestBody
   } catch {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 })
   }
 
-  if (!question?.trim() || !story?.id) {
-    return Response.json({ error: 'question and story are required' }, { status: 400 })
+  const question = typeof body.question === 'string' ? body.question.trim() : ''
+  const storyId =
+    typeof body.storyId === 'string'
+      ? body.storyId
+      : typeof body.story?.id === 'string'
+        ? body.story.id
+        : undefined
+
+  if (!question) {
+    return Response.json({ error: 'question is required' }, { status: 400 })
   }
 
-  const context = buildContext(story)
+  const stories = await getAllStories()
+  const retrievedStories = retrieveChatStories(stories, question, storyId)
+
+  if (retrievedStories.length === 0) {
+    return Response.json({
+      text:
+        "I couldn't find enough in the synthesized story summaries to answer that. Try asking about a specific topic, outlet, country, or story.",
+      citations: [],
+      retrievedStories: [],
+    })
+  }
+
+  const context = formatRetrievedStoriesForPrompt(retrievedStories)
 
   const geminiBody = {
     system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents: [
       {
         role: 'user',
-        parts: [{ text: `${context}\n\nQuestion: ${question}` }],
+        parts: [
+          {
+            text:
+              `${context}\n\nQuestion: ${question}\n\n` +
+              'Return citations using storyId from the retrieved story and sourceIndex when citing a listed source.',
+          },
+        ],
       },
     ],
     generationConfig: {
@@ -112,10 +194,20 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'empty response' }, { status: 502 })
   }
 
-  const parsed = JSON.parse(raw) as {
-    answer: string
-    citations: Array<{ n: number; outlet: string; url: string }>
+  let parsed: { answer: string; citations: RawCitation[] }
+  try {
+    parsed = JSON.parse(raw) as { answer: string; citations: RawCitation[] }
+  } catch (err) {
+    console.error('[chat] invalid Gemini JSON', err, raw)
+    return Response.json({ error: 'invalid upstream response' }, { status: 502 })
   }
 
-  return Response.json({ text: parsed.answer, citations: parsed.citations ?? [] })
+  const answer = typeof parsed.answer === 'string' ? parsed.answer : ''
+  const citations = sanitizeCitations(parsed.citations ?? [], retrievedStories, answer)
+
+  return Response.json({
+    text: answer,
+    citations,
+    retrievedStories: summarizeRetrievedStories(retrievedStories),
+  })
 }

@@ -5,7 +5,12 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X, ArrowUp, MessageSquareText } from 'lucide-react'
 import type { Story } from '@/lib/types'
 import { SPRING } from '@/lib/motion'
-import { SUGGESTED_QUESTIONS, type Citation } from '@/lib/mock-chat'
+import {
+  GLOBAL_SUGGESTED_QUESTIONS,
+  STORY_SUGGESTED_QUESTIONS,
+  type Citation,
+} from '@/lib/mock-chat'
+import type { ChatResponse } from '@/lib/chat-types'
 
 interface Message {
   id: string
@@ -27,6 +32,9 @@ export function ChatbotPanel({
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const threadRef = useRef<HTMLDivElement>(null)
+  const suggestedQuestions = story
+    ? STORY_SUGGESTED_QUESTIONS
+    : GLOBAL_SUGGESTED_QUESTIONS
 
   // Reset thread when the seeded story changes.
   useEffect(() => {
@@ -61,11 +69,11 @@ export function ChatbotPanel({
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, story }),
+      body: JSON.stringify({ question: q, storyId: story?.id }),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
-        return r.json() as Promise<{ text: string; citations: Citation[] }>
+        return r.json() as Promise<ChatResponse>
       })
       .then((ans) => {
         setMessages((m) => [
@@ -120,8 +128,8 @@ export function ChatbotPanel({
                 </div>
                 <p className="mt-1 truncate text-xs text-mist">
                   {story
-                    ? `Grounded in ${story.sources.length} sources · ${story.headline}`
-                    : 'Open a story to ground the assistant'}
+                    ? `Focused on ${story.headline}`
+                    : 'Search all synthesized story summaries'}
                 </p>
               </div>
               <button
@@ -138,12 +146,12 @@ export function ChatbotPanel({
               {messages.length === 0 && (
                 <div className="space-y-3">
                   <p className="text-sm leading-relaxed text-slate">
-                    I answer only from the articles loaded for this story, and
-                    cite each outlet. If something isn&apos;t in the sources, I&apos;ll
-                    say so.
+                    {story
+                      ? 'I start with this story and can bring in related stories when your question asks broadly.'
+                      : 'I search the synthesized story summaries on Scope and cite the stories or outlets I use.'}
                   </p>
                   <div className="flex flex-col gap-2">
-                    {SUGGESTED_QUESTIONS.map((q) => (
+                    {suggestedQuestions.map((q) => (
                       <button
                         key={q}
                         onClick={() => send(q)}
@@ -166,23 +174,8 @@ export function ChatbotPanel({
                 ) : (
                   <div key={m.id} className="flex justify-start">
                     <div className="max-w-[90%] rounded-md rounded-bl-sm border border-hairline bg-surface px-3.5 py-2.5 text-sm leading-relaxed text-slate">
-                      {m.text}
-                      {m.citations && m.citations.length > 0 && (
-                        <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
-                          {m.citations.map((c) => (
-                            <a
-                              key={`${m.id}-${c.n}`}
-                              href={c.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={c.outlet}
-                              className="inline-flex h-4 min-w-4 items-center justify-center rounded-[4px] border border-hairline bg-hairline-2 px-1 text-[10px] font-semibold text-slate transition-colors hover:border-ink hover:text-ink"
-                            >
-                              {c.n}
-                            </a>
-                          ))}
-                        </span>
-                      )}
+                      <p>{m.text}</p>
+                      <CitationChips messageId={m.id} citations={m.citations ?? []} />
                     </div>
                   </div>
                 ),
@@ -222,7 +215,7 @@ export function ChatbotPanel({
                     }
                   }}
                   rows={1}
-                  placeholder="Ask about this story…"
+                  placeholder={story ? 'Ask about this story...' : 'Ask across Scope...'}
                   className="max-h-28 flex-1 resize-none bg-transparent px-1.5 py-1 text-sm text-ink outline-none placeholder:text-mist"
                 />
                 <button
@@ -239,5 +232,43 @@ export function ChatbotPanel({
         </>
       )}
     </AnimatePresence>
+  )
+}
+
+function CitationChips({
+  messageId,
+  citations,
+}: {
+  messageId: string
+  citations: Citation[]
+}) {
+  if (citations.length === 0) return null
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {citations.map((citation, index) => {
+        const href = citation.url ?? `/story/${citation.storySlug}`
+        const isSource = !!citation.url
+        const label = isSource
+          ? citation.outlet ?? `Source ${citation.sourceIndex}`
+          : 'Story'
+        const title = isSource
+          ? `${citation.storyHeadline} · ${label}`
+          : citation.storyHeadline
+
+        return (
+          <a
+            key={`${messageId}-${citation.storyId}-${citation.sourceIndex ?? 'story'}-${index}`}
+            href={href}
+            target={isSource ? '_blank' : undefined}
+            rel={isSource ? 'noopener noreferrer' : undefined}
+            title={title}
+            className="inline-flex max-w-full items-center gap-1 rounded-[4px] border border-hairline bg-hairline-2 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-slate transition-colors hover:border-ink hover:text-ink"
+          >
+            <span className="truncate">{label}</span>
+          </a>
+        )
+      })}
+    </div>
   )
 }

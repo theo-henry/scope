@@ -64,7 +64,7 @@ export function TopNav() {
         <div className="flex shrink-0 items-center gap-1.5">
           <ThemeToggle />
           <button
-            onClick={() => openChat()}
+            onClick={() => openChat(null)}
             className="flex items-center gap-2 rounded-sm border border-hairline px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-hairline-2"
           >
             <MessageSquareText className="h-4 w-4" strokeWidth={1.5} />
