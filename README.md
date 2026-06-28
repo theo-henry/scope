@@ -1,221 +1,133 @@
 # Scope
 
-A daily news curator that synthesizes stories from multiple outlets into three analytical lenses: Institutional (neutral synthesis), Reformist (divergence), and Skeptic (bias & validity).
+**Scope is a daily news curator that reads the same story across many outlets and rewrites it as three distinct analytical lenses** — so you can see not just *what* happened, but *how differently it's being framed*.
+
+For every story, Scope generates:
+
+1. **Institutional / Neutral Synthesis** — the consensus account, stripped of spin.
+2. **Reformist / Divergence** — where coverage disagrees, and what the challengers argue.
+3. **Skeptic / Bias & Validity** — what to distrust: weak sourcing, loaded framing, missing context.
+
+The goal is media literacy by construction. Instead of reading one outlet and absorbing its bias, you read one *synthesis* that makes the disagreement itself the subject.
+
+> This project was built for a Generative AI class. The sections below flag **🤖 where and how generative AI does the work** — it is the core of the product, not a bolt-on.
+
+---
+
+## Where generative AI is used
+
+Generative AI (Google's **Gemini** models) is responsible for everything that turns raw news feeds into Scope's content. There are four distinct GenAI tasks:
+
+| # | Task | Model | What it does |
+|---|------|-------|--------------|
+| 1 | **Tri-Perspective synthesis** | `gemini-2.5-flash` | Reads a cluster of articles about one event from many outlets and writes the three lenses. A strict JSON schema (`response_schema`) forces the output to match the frontend's data contract exactly, so the model can't break the UI. |
+| 2 | **Story classification** | `gemini-2.5-flash` | The same call also tags each story with its topic categories (Politics, Tech/AI, Markets, …) and the countries it concerns, constrained to a fixed enum. These tags power the app's filters. |
+| 3 | **Editorial image generation** | `gemini-3.1-flash-image` | Generates one clean 16:9 editorial illustration per story (no text, no logos, no recognizable public figures) used as the story's artwork. |
+| 4 | **Grounded chat** | `gemini-2.5-flash` | A per-story chat assistant that answers **only** from the retrieved synthesized stories and cites its sources. It is prompt-constrained to refuse anything it can't ground in the loaded context — a deliberate guard against hallucination. |
+
+A key design choice: **the app never calls a model in the browser.** All synthesis runs ahead of time in a backend pipeline and is cached as JSON. The frontend just displays precomputed content. The only live model call is the chat assistant, which runs server-side on demand.
+
+---
 
 ## How the pipeline works
 
+Scope is a decoupled, cloud-native pipeline. Each stage hands off to the next through Google Cloud Storage, so the slow/expensive AI work is fully separated from the fast user-facing site.
+
 ```
-RSS feeds (BBC, CNBC, Guardian)
-  → backend/ingest.py          fetches articles, uploads to GCS
-  → Discovery Engine           indexes the articles, enables search
-  → backend/synthesize.py      retrieves clusters, calls Gemini, writes synthesized JSON
-  → GCS synthesized/latest.json
-  → Next.js frontend           fetches latest.json at build time (hourly ISR)
+  RSS / free news feeds (~80 outlets, all categories & regions)
+        │
+        ▼
+  ingest.py ─────────────► fetches articles, normalizes them,
+        │                  uploads raw + indexable files to Cloud Storage
+        ▼
+  Discovery Engine ──────► indexes the articles so they can be
+  (Agent Search)           retrieved by semantic search
+        │
+        ▼
+  synthesize.py ─────────► 🤖 retrieves clusters of related articles,
+        │                  asks Gemini to write the 3 lenses + tags + image,
+        │                  dedupes/merges events, writes synthesized JSON
+        ▼
+  Cloud Storage ─────────► synthesized/latest.json  (the cached "brief")
+        │
+        ▼
+  Next.js frontend ──────► reads latest.json, renders the swipeable feed.
+                           🤖 chat panel answers questions, grounded + cited.
 ```
 
-The frontend never calls RSS, Discovery Engine, or Gemini directly. It reads a precomputed JSON file.
+**Why a retrieval step at all?** Pulling articles into a search index first means synthesis works on *clusters of independent coverage of the same event* rather than a single feed. That cross-outlet overlap is exactly what makes the three-lens comparison possible — and it's a small RAG (retrieval-augmented generation) setup: retrieve relevant documents, then feed them to the model as grounded context.
 
 ---
 
-## Prerequisites
+## Repository structure
 
-| Tool | What it is | Install |
-|------|-----------|---------|
-| `gcloud` CLI | Google Cloud command-line tool | [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install) |
-| Python 3.11+ | Backend runtime | [python.org](https://python.org) |
-| Node.js 20+ | Frontend runtime | [nodejs.org](https://nodejs.org) |
-| `pnpm` | Frontend package manager | `npm install -g pnpm` |
+```
+scope/
+├── backend/                  Python data + AI pipeline
+│   ├── sources.json          catalog of ~80 RSS feeds (the inputs)
+│   ├── ingest.py             fetch feeds → normalize → upload to Cloud Storage
+│   ├── synthesize.py         🤖 retrieve clusters → Gemini synthesis → cached JSON
+│   ├── refresh.py            orchestrates ingest → index import → synthesize
+│   ├── outlet_bias.json      static left/center/right ratings per outlet
+│   └── evaluate.py           quality checks on generated output
+│
+├── scope-news-reader/        Next.js (App Router) frontend
+│   ├── app/                  pages (feed, story, onboarding, settings)
+│   │   └── api/chat/route.ts 🤖 server-side grounded chat endpoint
+│   ├── components/           UI (feed cards, lens sections, chatbot, …)
+│   └── lib/                  data fetching, types, retrieval helpers
+│       ├── types.ts          the Story / TriPerspectiveLens contract
+│       ├── stories.ts        fetches synthesized/latest.json (hourly ISR)
+│       └── chat-retrieval.ts local keyword retrieval for the chat assistant
+│
+├── CLAUDE.md / TASKS.md      engineering handoff & task notes
+├── LESSONS.md                things learned the hard way (e.g. retrieval tuning)
+├── PRD.md / DESIGN.md        product requirements & design spec
+└── README.md                 you are here
+```
 
-You also need:
-- A Google account with IAM access to `scope-mvp-prod`
-- A Gemini API key from [aistudio.google.com](https://aistudio.google.com)
+### The backend ↔ frontend contract
+
+The single most important interface in the project is the shape of a story. `LENS_RESPONSE_SCHEMA` in `backend/synthesize.py` (the schema Gemini is forced to fill) mirrors `Story` / `TriPerspectiveLens` in `scope-news-reader/lib/types.ts` (the shape the UI reads). Keeping these two in sync is what guarantees the AI output always renders correctly.
 
 ---
 
-## Local development
+## The frontend experience
 
-### 1. Authenticate with Google Cloud
+- **Daily brief** — a focused set of essential stories, presented as a swipeable horizontal feed.
+- **Per-story coverage view** — the three lenses as numbered sections, plus the spread of sources and their bias ratings.
+- **Filters** — by topic category and country, driven by the AI-assigned tags.
+- **🤖 Chat overlay** — ask follow-up questions about a story; answers come only from the loaded articles and are cited.
+- **Onboarding & settings** — a demo profile lets you pick interests; no real auth in this version.
 
-```bash
-gcloud auth application-default login
-gcloud config set project scope-mvp-prod
-gcloud auth application-default set-quota-project scope-mvp-prod
-```
+The design follows an NYT-clean aesthetic: serif headlines, generous whitespace, restrained accent color. See `DESIGN.md` for the full spec.
 
-### 2. Set up the backend
+---
 
-```bash
-python -m venv backend/venv
-backend/venv/bin/pip install -r backend/requirements.txt
-```
+## Tech stack
 
-### 3. Run ingestion (uploads articles to GCS)
+| Layer | Technology |
+|-------|-----------|
+| **Generative AI** | Google Gemini (`gemini-2.5-flash` for text, `gemini-3.1-flash-image` for artwork) |
+| **Retrieval / RAG** | Google Cloud Discovery Engine (Agent Search) |
+| **Storage / pipeline** | Google Cloud Storage |
+| **Backend** | Python (`feedparser`, `google-genai`, `google-cloud-*`) |
+| **Frontend** | Next.js (App Router), TypeScript, Tailwind / shadcn-style components |
+| **Hosting** | Vercel (frontend), reading the cached JSON from Cloud Storage |
 
-```bash
-backend/venv/bin/python backend/ingest.py
-```
+---
 
-After this, trigger an incremental import in Discovery Engine so the new articles are searchable. Go to [console.cloud.google.com/gen-app-builder](https://console.cloud.google.com/gen-app-builder), select `scope-news-search`, and import from `gs://scope-news-raw-data/agent-search/*.ndjson`.
+## Running it locally
 
-### 4. Run synthesis (calls Gemini, writes latest.json to GCS)
-
-```bash
-export GEMINI_API_KEY="your-key-here"
-export SCOPE_DATA_STORE_ID="scope-news-raw-datastore"
-export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
-
-backend/venv/bin/python backend/synthesize.py
-```
-
-This overwrites `gs://scope-news-raw-data/synthesized/latest.json` with 5 fresh stories.
-
-### 5. Run the frontend
+The frontend is the interesting part to see; it reads the already-generated brief from Cloud Storage, so you don't need the backend or any cloud access to run it.
 
 ```bash
 cd scope-news-reader
 pnpm install
-```
-
-Create `scope-news-reader/.env.local`:
-
-```
-GEMINI_API_KEY=your-key-here
-```
-
-Then start the dev server:
-
-```bash
+cp .env.local.example .env.local   # add a Gemini API key to enable the chat panel
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The app fetches `latest.json` from GCS at startup. The chat panel on each story page sends questions to `/api/chat`, which retrieves the most relevant synthesized stories locally (keyword scoring over the already-loaded `latest.json`, no separate vector store), passes that context to Gemini, and returns grounded answers with story/source citations.
+Then open <http://localhost:3000>.
 
----
-
-## Deploying to Vercel
-
-Vercel is the recommended hosting platform for Next.js. The free tier is sufficient for this project.
-
-### 1. Push the repo to GitHub
-
-Make sure `scope-news-reader/` is committed and pushed.
-
-### 2. Connect to Vercel
-
-1. Go to [vercel.com](https://vercel.com) and sign in
-2. Click **Add New → Project**
-3. Import your GitHub repository
-4. Set **Root Directory** to `scope-news-reader`
-5. Framework preset will auto-detect as **Next.js**
-
-### 3. Set environment variables
-
-In the Vercel project settings under **Environment Variables**, add:
-
-| Variable | Value |
-|----------|-------|
-| `GEMINI_API_KEY` | Your Gemini Developer API key |
-| `SCOPE_STORIES_URL` | `https://storage.googleapis.com/scope-news-raw-data/synthesized/latest.json` |
-
-### 4. Deploy
-
-Click **Deploy**. Vercel builds and hosts the app. Every subsequent push to `main` triggers a new deploy automatically.
-
-The frontend revalidates `latest.json` every hour (ISR), so new synthesis runs appear without a redeploy.
-
----
-
-## Refreshing data
-
-Use the refresh script whenever you want fresh stories:
-
-```bash
-export SCOPE_PROJECT_ID="scope-mvp-prod"
-export SCOPE_DATA_STORE_ID="scope-news-raw-datastore"
-export SCOPE_SEARCH_ENGINE_ID="scope-news-search"
-
-# Use one of these auth paths:
-export SCOPE_GEMINI_SECRET_ID="scope-gemini-api-key"
-# or, for local/manual testing:
-# read -rsp "Gemini API key: " GEMINI_API_KEY && echo && export GEMINI_API_KEY
-
-backend/venv/bin/python backend/refresh.py
-```
-
-`refresh.py` fetches RSS articles, uploads raw + NDJSON files to GCS, triggers the
-Discovery Engine incremental import, waits briefly for indexing, then runs
-synthesis and image generation.
-
-`latest.json` is updated automatically. The live site picks it up within one hour.
-Older stories are retained for 14 days by default, capped at 50 visible stories.
-Existing stories are reused when the retrieved source cluster has the same
-`sourceKey`, so unchanged story clusters do not call Gemini again or regenerate
-their images.
-
-For a no-publish check before scheduling, run:
-
-```bash
-SCOPE_REFRESH_DRY_RUN=true backend/venv/bin/python backend/refresh.py
-```
-
-Dry runs still fetch/import current RSS articles and upload a refresh report, but
-they do not call Gemini or overwrite `synthesized/latest.json`.
-
----
-
-## Environment variables reference
-
-### Frontend (`scope-news-reader/.env.local`)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GEMINI_API_KEY` | Yes | — | Gemini Developer API key for the `/api/chat` route |
-| `SCOPE_STORIES_URL` | No | GCS public URL | Override where the frontend fetches story data |
-| `SCOPE_GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model used by the chat route |
-
-### Backend (shell exports before running scripts)
-
-The shared Gemini key is stored in Secret Manager as `scope-gemini-api-key`.
-Prefer `SCOPE_GEMINI_SECRET_ID=scope-gemini-api-key` for synthesis runs; use a
-direct `GEMINI_API_KEY` only for short-lived local testing.
-For local testing, `backend/synthesize.py` also reads a repo-root `.env` file
-before it reads environment variables. `.env` is gitignored.
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GEMINI_API_KEY` / `GOOGLE_API_KEY` | Yes* | — | Used by `synthesize.py` for story text and image generation |
-| `SCOPE_GEMINI_SECRET_ID` | No | — | Secret Manager secret name or resource path for the Gemini key; used when no key env var is set |
-| `SCOPE_DATA_STORE_ID` | Yes | — | Discovery Engine data store ID |
-| `SCOPE_SEARCH_ENGINE_ID` | No | — | Discovery Engine search app ID |
-| `SCOPE_PROJECT_ID` | No | `scope-mvp-prod` | GCP project ID |
-| `SCOPE_GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model used by synthesis |
-| `SCOPE_GEMINI_IMAGE_MODEL` | No | `gemini-3.1-flash-image` | Gemini image model used for generated story artwork |
-| `SCOPE_SOURCE_CATALOG` | No | `backend/sources.json` | JSON source catalog used by ingestion |
-| `SCOPE_PER_FEED_LIMIT` | No | `12` | Maximum RSS entries fetched from each source |
-| `SCOPE_MIN_DOMAINS` | No | `3` | Minimum distinct source domains required for synthesis |
-| `SCOPE_MIN_DOMAINS_EXCEPTION_CATEGORIES` | No | `Tech/AI,Markets` | Categories allowed to use lower domain threshold |
-| `SCOPE_EXCEPTION_MIN_DOMAINS` | No | `2` | Minimum domains for exception categories |
-| `SCOPE_MAX_DOMAIN_SHARE` | No | `0.6` | Maximum share of recent retrieved docs allowed from one domain |
-| `SCOPE_MAX_NEW_CLUSTERS` | No | `10` | Maximum selected candidate clusters per refresh |
-| `SCOPE_REFRESH_DRY_RUN` | No | `false` | If true, write a report without Gemini calls or `latest.json` updates |
-| `SCOPE_IMAGE_PREFIX` | No | `story-images` | GCS prefix for generated story images |
-| `SCOPE_STORY_RETENTION_DAYS` | No | `14` | Number of days old stories remain visible in `latest.json` |
-| `SCOPE_MAX_STORIES` | No | `50` | Maximum visible stories retained in `latest.json` |
-| `SCOPE_CLUSTER_DOC_MAX_AGE_DAYS` | No | `14` | Maximum age of ingested documents considered for new/reused clusters |
-| `SCOPE_INDEX_SETTLE_SECONDS` | No | `120` | Refresh delay after Discovery Engine import before synthesis |
-| `SCOPE_IMPORT_TIMEOUT_SECONDS` | No | `900` | Timeout for the Discovery Engine import operation |
-
-*Required unless `SCOPE_GEMINI_SECRET_ID` is configured and the runtime has Secret Manager access.
-
----
-
-## GCP resources
-
-| Resource | ID |
-|----------|----|
-| GCP Project | `scope-mvp-prod` |
-| GCS Bucket | `scope-news-raw-data` |
-| Discovery Engine data store | `scope-news-raw-datastore` |
-| Discovery Engine search app | `scope-news-search` |
-| Synthesized cache (public) | `gs://scope-news-raw-data/synthesized/latest.json` |
-| Generated story images (public) | `gs://scope-news-raw-data/story-images/` |
+The backend pipeline (`ingest.py` → Discovery Engine import → `synthesize.py`, or all three via `refresh.py`) regenerates the cached brief and requires access to the `scope-mvp-prod` Google Cloud project. Engineering details for that live in `CLAUDE.md`.
